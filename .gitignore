@@ -2,6 +2,12 @@
 cl_h/*
 exe/*
 o/*
+.vscode/*
+output.log
+myrsync.sh
+*.txt
+*.csv
+*.png
 
 # Prerequisites
 *.d
