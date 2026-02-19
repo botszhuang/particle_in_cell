@@ -59,7 +59,8 @@ $(OBJ_DIR) $(EXE_DIR):
 .PHONY:run clean
 
 run: build
-	./$(EXE_FILE)
+#	valgrind --leak-check=full --show-leak-kinds=all --verbose $(EXE_FILE)
+	valgrind $(EXE_FILE)
 
 clean:
 	rm -rf $(OBJ_DIR) $(EXE_DIR)
