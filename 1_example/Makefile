@@ -27,7 +27,7 @@ CL_HEADERS := $(patsubst $(CL_DIR)/%.cl,$(OBJ_DIR)/%_cl.h,$(CL_FILES))
 
 # Include all subdirectories under C_DIR
 INC_DIRS := $(shell find $(C_DIR) -type d)
-CC_INC   := $(addprefix -I,$(INC_DIRS))
+CC_INC   := $(addprefix -I,$(INC_DIRS)) -I$(OBJ_DIR)
 
 CCFLAGS  := -I$(CUDA_INC) $(CC_INC) -g -DDEBUG
 LDFLAGS  := -L$(CUDA_LIB) -L$(CUDA_LIB64) -lOpenCL -lm
@@ -60,7 +60,8 @@ $(OBJ_DIR) $(EXE_DIR):
 
 run: build
 #	valgrind --leak-check=full --show-leak-kinds=all --verbose $(EXE_FILE)
-	valgrind $(EXE_FILE)
+#	valgrind $(EXE_FILE)
+	$(EXE_FILE)
 
 clean:
 	rm -rf $(OBJ_DIR) $(EXE_DIR)
