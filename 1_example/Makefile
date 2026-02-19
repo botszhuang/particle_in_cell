@@ -1,82 +1,65 @@
-CC          := gcc
-EXE_DIR     := exe
-EXE_FILE    := $(EXE_DIR)/main.exe
+PROJECT_NAME := /home/botsz/code/ghost_at_particle_in_cell
+CUDA_INC     := /usr/local/cuda/include
+CUDA_LIB     := /usr/local/cuda/lib
+CUDA_LIB64   := /usr/local/cuda/lib64
 
-SRC_DIR  := c
-OBJ_DIR  := o
-SRCS     := $(shell find $(SRC_DIR) -name *.c )
-OBJS     := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
-ccInc    := $(addprefix -I,./$(shell find $(SRC_DIR) -type d))
+CC := gcc
 
-cl_DIR   := cl
-cl_h_DIR := cl_h
-cl_s     := $(shell find $(cl_DIR) -name *.cl )
-#cl_h_s   := $(patsubst $(cl_DIR)/%.cl,$(cl_h_DIR)/%_cl.h,$(cl_s))
-cl_h_s   := $(patsubst $(cl_DIR)/%.cl,$(cl_h_DIR)/%_cl.o,$(wildcard $(cl_DIR)/*.cl))
-clInc    := -I./$(cl_h_DIR)
+# Path Definitions
+SRC_PATH     := $(PROJECT_NAME)/0_src
+EXAMPLE_PATH := $(PROJECT_NAME)/1_example
+
+C_DIR   := $(SRC_PATH)
+CL_DIR  := $(SRC_PATH)
+OBJ_DIR := $(EXAMPLE_PATH)/o
+EXE_DIR := $(EXAMPLE_PATH)/exe
+
+# File Discovery
+EXE_FILE := $(EXE_DIR)/main.exe
+C_FILES  := $(shell find $(C_DIR) -name "*.c")
+CL_FILES := $(shell find $(CL_DIR) -name "*.cl")
+
+# Generate Object list: maps 0_src/c/file.c to 1_example/o/file.o
+O_FILES  := $(patsubst $(C_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_FILES))
+
+# Generate Header list for CL files
+CL_HEADERS := $(patsubst $(CL_DIR)/%.cl,$(OBJ_DIR)/%_cl.h,$(CL_FILES))
+
+# Include all subdirectories under C_DIR
+INC_DIRS := $(shell find $(C_DIR) -type d)
+CC_INC   := $(addprefix -I,$(INC_DIRS))
+
+CCFLAGS  := -I$(CUDA_INC) $(CC_INC) -g -DDEBUG
+LDFLAGS  := -L$(CUDA_LIB) -L$(CUDA_LIB64) -lOpenCL -lm
 
 
-CUDA_INC := /usr/local/cuda/include
+######################################
 
-CCFLAGS := -I$(CUDA_INC) $(ccInc) $(clInc) -DDEBUG
-LDFLAGS := -L/usr/local/cuda/lib -L/usr/local/cuda/lib64 -lOpenCL -lm
-
-cl_common_obj := $(cl_h_DIR)/c_and_cl_common.o
-
-################################################################################
-
-# Target rules
 all: build
 
-build:$(cl_h_s) $(cl_common_obj) $(EXE_FILE)
-
-$(OBJS): $(cl_h_s) $(cl_common_obj) 
+build: $(CL_HEADERS) $(EXE_FILE)
 
 # Link executable
-$(EXE_FILE):$(OBJS) $(cl_h_s) $(cl_common_obj) | $(EXE_DIR)
-	$(CC) -o $@ $(OBJS) $(cl_h_s) $(cl_common_obj) $(CCFLAGS) $(LDFLAGS)
+$(EXE_FILE): $(O_FILES) | $(EXE_DIR)
+	$(CC) -o $@ $^ $(CCFLAGS) $(LDFLAGS)
 
 # Compile C source .c -> obj/*.o
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c |$(OBJ_DIR)
-	$(CC) -c $< -o $@ $(CCFLAGS)
+$(OBJ_DIR)/%.o: $(C_DIR)/%.c $(CL_HEADERS) | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CCFLAGS) -c $< -o $@
 
-# Embed kernels: .cl -> _cl.h
-#$(cl_h_DIR)/%_cl.h: $(cl_DIR)/%.cl | $(cl_h_DIR)
-#	xxd -i -n $* $< > $@
-# Embed kernels: .cl -> _cl.o
-#$(cl_h_DIR)/%_cl.o: $(cl_DIR)/%.cl | $(cl_h_DIR)
-#	ld -r -b binary -o $@ $<
-#	cat $< <(echo -ne '\0') > $@
+# Convert kernel.cl -> kernel_cl.h in the object folder
+$(OBJ_DIR)/%_cl.h: $(CL_DIR)/%.cl | $(OBJ_DIR)
+	@echo "Baking kernel: $(notdir $<)"
+	@cd $(CL_DIR) && xxd -i $(notdir $<) > $(abspath $@)
 
-$(cl_h_DIR)/%_cl.o: $(cl_DIR)/%.cl | $(cl_h_DIR)
-	TEMP_NULL=$@.temp.null; \
-	cp $< $${TEMP_NULL}; \
-	printf '\0' >> $${TEMP_NULL}; \
-	ld -r -b binary -o $@ $${TEMP_NULL}; \
-	rm $${TEMP_NULL}
-
-	
-
-$(cl_h_DIR)/c_and_cl_common.o: c/c_and_cl_common.h | $(cl_h_DIR)
-	TEMP_NULL=$@.temp.null; \
-	cp $< $${TEMP_NULL}; \
-	printf '\0' >> $${TEMP_NULL}; \
-	ld -r -b binary -o $@ $${TEMP_NULL}; \
-	rm $${TEMP_NULL}
-
-$(OBJ_DIR):
+$(OBJ_DIR) $(EXE_DIR):
 	mkdir -p $@
 
-$(cl_h_DIR):
-	mkdir -p $@
+.PHONY:run clean
 
-$(EXE_DIR):
-	mkdir -p $@
-
-.PHONY:run
 run: build
 	./$(EXE_FILE)
 
-.PHONY:clean
 clean:
-	rm -rf $(OBJ_DIR) $(cl_h_DIR) $(EXE_DIR)
+	rm -rf $(OBJ_DIR) $(EXE_DIR)
