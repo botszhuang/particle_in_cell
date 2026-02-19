@@ -1,8 +1,8 @@
-#include <cl_info.h>
+#include <cl_platform_struct.h>
 
 void create_queue( cl_platform_struct * a ){
     
-    cl_uint ret = 0 ;
+    cl_int ret = 0 ;
 
     a->queue = calloc ( a->device_N , sizeof ( a->queue[0] ) ) ;
 
@@ -19,13 +19,6 @@ void create_queue( cl_platform_struct * a ){
     }
 }
 
-void free_queue ( cl_platform_struct * g ) {
-    for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
-        if( g->queue [ i ] ) {
-            clReleaseCommandQueue(g->queue [ i ]) ;
-        }
-    }
-}
 void finish_queue ( cl_platform_struct * g ){
     for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
         clFlush (g->queue [ i ] ) ;

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include <cl_info.h>
+#include <cl_platform_struct.h>
 
 #define printLine()   { printf("--------------------------\n"); }
 
@@ -133,9 +133,6 @@ void select_the_platform (  cl_platform_struct * g ) {
 
 
     // select the specific platform
-    char buffer[128];
-    unsigned int buffer_size = sizeof ( buffer ) ;
-
     for ( unsigned int i = 0 ; i < n ; i++ ) {
 
         if ( ! list_devices( list [ i ] , false ) ) { continue ; }

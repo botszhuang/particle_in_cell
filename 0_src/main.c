@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include <cl_info.h>
+#include <cl_platform_struct.h>
+#include <cl_kernel_list.h>
 
 int main(){
 
@@ -24,11 +25,18 @@ int main(){
 
     init_program ( &gpu );
 
+    cl_kernel hello_world_kernel ;
+
+    create_hello_world_kernel ( &hello_world_kernel , gpu.program ) ;
+
+    run_kernel_hello_world ( hello_world_kernel , gpu.queue[0] ) ;
+
 
     finish_queue ( &gpu );
 
-    free_queue   ( &gpu );
-    free_context ( &gpu ) ;
+    free_k ( hello_world_kernel ) ;
+    
+    free_platform_struct ( &gpu ) ;
 
 
     return EXIT_SUCCESS;
