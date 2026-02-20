@@ -2,6 +2,13 @@
 #include <cl_platform_struct.h>
 #include <cl_kernel_list.h>
 #include <input/input.h>
+#include <particle_and_grid/grid.h>
+#include <particle_and_grid/particle.h>
+
+typedef struct{
+    particle_struct particles ;    
+    grid_struct grids ;
+} data_struct ;
 
 int main( int argc , char * argv[]  ){
 
@@ -37,6 +44,18 @@ int main( int argc , char * argv[]  ){
     key_value_pair_struct * keys = set_key( ) ;
     read_parameters( keys , inputFile ) ;
     print_parameters( keys ) ;
+
+    data_struct data ;
+
+    data.grids.number = read_2D( & ( data.grids.position ) , keys[0].value ) ;
+    print_2D_list( data.grids.position , data.grids.number ) ;
+
+    data.particles.number = read_2D( & ( data.particles.position ) , keys[1].value ) ;
+    print_2D_list( data.particles.position , data.particles.number ) ;
+
+    data.particles.number = read_2D( & ( data.particles.velocity ) , keys[2].value ) ;
+    print_2D_list( data.particles.velocity , data.particles.number ) ;
+
 
     finish_queue ( &gpu );
 
