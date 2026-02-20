@@ -3,7 +3,8 @@ import os
 
 path="./input/"
 gridFile = path+"grid.tex"
-particleFile = path+"particle.tex"
+particle_XFile = path+"particle_position.tex"
+particle_VFile = path+"particle_velocity.tex"
 
 xboundarys = [ 0, 10 ]
 yboundarys = [ 0, 10 ]
@@ -23,24 +24,32 @@ with open( gridFile , "w" ) as f:
         for y in range( yboundarys[0], yboundarys[1] ):
             f.write( "%d %d\n" % ( x, y ) )
 
-#initialize the particles position
+#initialize the particles position and velocity
 xWidth = xboundarys[1] - xboundarys[0]
 yWidth = yboundarys[1] - yboundarys[0]
 
-if os.path.exists( particleFile ):
-    os.system( "rm -f %s " % ( particleFile ) )
+if os.path.exists( particle_XFile ):
+    os.system( "rm -f %s " % ( particle_XFile ) )
 
-with open( particleFile , "w" ) as f:
-    f.write( "# x y vx vy\n" )
-    for i in range( 1000 ):
+if os.path.exists( particle_VFile ):
+    os.system( "rm -f %s " % ( particle_VFile ) )    
 
-        #position
-        x = np.random.rand() * xWidth + xboundarys[0]
-        y = np.random.rand() * yWidth + yboundarys[0]
+with open( particle_XFile , "w" ) as X:
+    with open( particle_VFile , "w" ) as V:
+        X.write( "# x y\n" )
+        V.write( "# vx vy\n" )    
+        
+        for i in range( 1000 ):
 
-        #velocity
-        vx = np.random.rand() * 2 * vMax - vMax
-        vy = np.random.rand() * 2 * vMax - vMax
+            #position
+            x = np.random.rand() * xWidth + xboundarys[0]
+            y = np.random.rand() * yWidth + yboundarys[0]
+            X.write( "%.6f %.6f\n" % ( x, y) )
 
-        # output
-        f.write( "%.6f %.6f %.6f %.6f\n" % ( x, y, vx, vy ) )
+            #velocity
+            vx = np.random.rand() * 2 * vMax - vMax
+            vy = np.random.rand() * 2 * vMax - vMax
+            V.write( "%.6f %.6f\n" % ( vx, vy ) )
+
+
+     

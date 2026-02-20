@@ -1,9 +1,10 @@
 # Folder
 */o/*
 *.vscode/*
+*/input/*
 
 *.log
-*.txt
+*.tex
 *.csv
 *.png
 *.swp

@@ -57,6 +57,6 @@ $(foreach f,$(CL_FILES),$(eval $(call BAKE_KERNEL,$(f))))
 run: all
 #	valgrind --leak-check=full --show-leak-kinds=all --verbose $(EXE_FILE)
 #	valgrind $(EXE_FILE)
-	$(EXE_FILE)
+	$(EXE_FILE) input.tex
 clean:
 	rm -rf $(OBJ_DIR) $(EXE_DIR)
