@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <cl_version.h>
+#include <cl_erro_code.h>
 
 typedef struct{
 

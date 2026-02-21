@@ -14,15 +14,15 @@ void create_queue( cl_platform_struct * a ){
                 a->queue [ i ] = clCreateCommandQueueWithProperties( a->context, a->devices [ i ], props, &ret);
         #else
             // OpenCL 1.2
-            a->queue [ i ] = clCreateCommandQueue( a->context, a->devices [ i ] , 0, &ret);
+            a->queue [ i ] = clCreateCommandQueue( a->context, a->devices [ i ] , 0, &ret); CL_CHECK( ret ) ;
         #endif
     }
 }
 
 void finish_queue ( cl_platform_struct * g ){
     for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
-        clFlush (g->queue [ i ] ) ;
-        clFinish(g->queue [ i ] ) ;
+        CL_CHECK( clFlush (g->queue [ i ] ) );
+        CL_CHECK( clFinish(g->queue [ i ] ) );
     }
 }
 

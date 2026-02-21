@@ -57,7 +57,18 @@ int main( int argc , char * argv[]  ){
     print_2D_list( particles.position , particles.number ) ;
     print_2D_list( particles.velocity , particles.number ) ;
 
-    
+    grids.cl_position_bytes         = grids.number     * sizeof( grid_dimension     ) ;
+    grids.cl_position = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , grids.cl_position_bytes , grids.position , NULL ) ;
+
+    particles.cl_position_bytes     = particles.number * sizeof( particle_dimension ) ;
+    particles.cl_velocity_bytes     = particles.number * sizeof( particle_dimension ) ;
+    particles.cl_acceleration_bytes = particles.number * sizeof( particle_dimension ) ;
+
+    particles.cl_position     = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_position_bytes     , particles.position , NULL ) ;
+    particles.cl_velocity     = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_velocity_bytes     , particles.velocity , NULL ) ;
+    particles.cl_acceleration = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_acceleration_bytes , particles.acceleration , NULL ) ;
+
+
 
     finish_queue ( &gpu );
 

@@ -15,6 +15,13 @@ void init_program( cl_platform_struct * g ){
 
     g->program = clCreateProgramWithSource( g->context , count , sources, sizes, &err);
     err = clBuildProgram( g->program , g->device_N , g->devices , NULL , NULL, NULL) ;
+    if ( err != CL_SUCCESS ) {
+        printf("Error building program: %d\n", err);
+        for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
+            print_cl_build_log( g->program , g->devices [ i ] ) ;
+        }
+        exit(EXIT_FAILURE);
+    }
 
 }
 

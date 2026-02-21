@@ -11,7 +11,7 @@ void get_device_ids ( cl_platform_id platform_id , cl_device_id ** dev , unsigne
 
     cl_uint n = 0 ;
 
-    clGetDeviceIDs( platform_id , CL_DEVICE_TYPE_GPU, 0, NULL, & n );
+    clGetDeviceIDs( platform_id , CL_DEVICE_TYPE_GPU, 0, NULL, & n ) ; 
 
     if ( n < 0) {
         printf("  No devices found on this platform.\n");
@@ -20,7 +20,7 @@ void get_device_ids ( cl_platform_id platform_id , cl_device_id ** dev , unsigne
 
     // Allocate memory and get the IDs
     * dev = malloc( n * sizeof(cl_device_id));
-    clGetDeviceIDs( platform_id , CL_DEVICE_TYPE_GPU, n, *dev , NULL );
+    clGetDeviceIDs( platform_id , CL_DEVICE_TYPE_GPU, n, *dev , NULL ); 
 
     * dev_n = n ;
 
@@ -31,17 +31,18 @@ unsigned int list_devices( cl_platform_id platform_id , bool print ) {
     cl_uint n = 0 ;
     cl_device_id * devices ;
 
-    get_device_ids ( platform_id , & devices , & n ) ;
+    get_device_ids ( platform_id , & devices , & n ) ; 
 
     if ( print ) {  printf("Device number: %i\n" , n ); }
 
 
+    cl_int ret = 0 ;
     char name [ 128 ] ;
 
     for (cl_uint i = 0; i < n ; i++) {
 
         // Get device name and type
-        clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name), name, NULL);
+        ret = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(name), name, NULL); CL_CHECK( ret ) ;  
 
         if ( print ) { printf("    %d: %s\n", i, name); }
     }
@@ -66,11 +67,13 @@ void print_a_platform_info ( const cl_platform_id id ) {
     const char * labels[] = { "Name", "Vendor", "Version", "Extensions" };
     const unsigned int labelsN = sizeof(labels) / sizeof(labels[0]);
 
+    cl_int ret = 0 ;    
+
     char * buffer = malloc ( N ) ;
 
     for ( unsigned int i = 0; i < labelsN ; i++) {
 
-        clGetPlatformInfo( id , param_ids[i], N, buffer, NULL);
+        ret = clGetPlatformInfo( id , param_ids[i], N, buffer, NULL); CL_CHECK( ret );
             printf("  %-12s: %s\n", labels[i], buffer);
             memset( buffer , 0,  N );
     }
@@ -86,9 +89,9 @@ void print_all_platform_info (){
 
     cl_platform_id * list ;
     cl_uint n = 0 ;
+    cl_int ret = 0 ;
 
-
-    clGetPlatformIDs( 0 , NULL , & n );
+    ret = clGetPlatformIDs( 0 , NULL , & n ); CL_CHECK( ret ) ;
 
     if (n  == 0) {
         printf("No OpenCL platforms found!\n");
@@ -101,7 +104,7 @@ void print_all_platform_info (){
 
     list = calloc( n , sizeof( list[0] ) );
 
-    clGetPlatformIDs( n , list , NULL) ;
+    ret = clGetPlatformIDs( n , list , NULL) ; CL_CHECK( ret ) ;
 
     for ( unsigned int i = 0 ; i < n ; i++ ) {
 
@@ -120,16 +123,17 @@ void select_the_platform (  cl_platform_struct * g ) {
 
     cl_uint n = 0 ;
     cl_platform_id * list ;
+    cl_int ret = 0 ;
 
     // list all platform ids
-    clGetPlatformIDs( 0 , NULL , & n );
+    ret = clGetPlatformIDs( 0 , NULL , & n ); CL_CHECK( ret ) ;
 
     if (n  == 0) {
         printf("No OpenCL platforms found!\n");
         exit(EXIT_FAILURE);
     }
     list = calloc( n , sizeof( list[0] ) );
-    clGetPlatformIDs( n , list , NULL ) ;
+    ret = clGetPlatformIDs( n , list , NULL ) ; CL_CHECK( ret ) ;
 
 
     // select the specific platform
