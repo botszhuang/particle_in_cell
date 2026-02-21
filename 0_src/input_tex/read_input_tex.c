@@ -1,4 +1,6 @@
-#include <read_input_tex.h>
+#include <get_input_info.h>
+#include <stdio.h>
+#include <string.h>
 
 #define buffer_size 128
 FILE * fptr ;

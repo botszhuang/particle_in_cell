@@ -1,5 +1,5 @@
-#include <read_input_tex.h>
 #include <get_input_info.h>
+#include <stdio.h>
 
 void get_input_tex ( input_tex_tag_struct * input_tag ,  char * inputFile ){
     printf("### Reading %s ......\n" , inputFile ) ;

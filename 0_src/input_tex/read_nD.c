@@ -1,5 +1,5 @@
-#include <read_input_tex.h>
-#include <grid.h>
+#include <get_input_info.h>
+#include <stdio.h>
 
 double * relloacte_list_memory( double * list , unsigned int new_size ) {
 

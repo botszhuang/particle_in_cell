@@ -1,4 +1,5 @@
 #pragma once
+
 #include <cl_version.h>
 #include <dimension.h>
 
@@ -20,4 +21,5 @@ typedef struct{
     cl_mem cl_acceleration ;
 
 } particle_struct ;
+
 

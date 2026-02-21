@@ -1,5 +1,5 @@
 
-#include <CL/cl.h>
+#include <cl_version.h>
 #include <cl_erro_code.h>
 #include <particle_struct.h>
 #include <get_input_info.h>
