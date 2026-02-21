@@ -16,10 +16,12 @@ EXE_DIR := $(EXAMPLE_PATH)/exe
 EXE_FILE := $(EXE_DIR)/main.exe
 C_FILES  := $(shell find $(SRC_PATH) -name "*.c")
 CL_FILES := $(shell find $(SRC_PATH)/cl_kernel -name "*.cl")
+CL_H_FILES := $(shell find $(SRC_PATH)/struct -name "*.h")
 
 O_FILES  := $(patsubst $(SRC_PATH)/%.c,$(OBJ_DIR)/%.o,$(C_FILES))
 
-CL_HEADERS := $(foreach f,$(CL_FILES),$(OBJ_DIR)/$(notdir $(patsubst %/,%,$(dir $(f))))_cl.h)
+CL_HEADERS := $(foreach f,$(CL_FILES)  ,$(OBJ_DIR)/$(notdir $(patsubst %/,%,$(dir $(f))))_cl.h)
+CL_HEADERS += $(patsubst $(SRC_PATH)/struct/%.h, $(OBJ_DIR)/%_h.h, $(CL_H_FILES))
 
 ALL_SRC_DIRS := $(shell find $(SRC_PATH) -type d)
 CC_INC := $(addprefix -I,$(ALL_SRC_DIRS)) -I$(OBJ_DIR)
@@ -51,6 +53,17 @@ $(OBJ_DIR)/$(notdir $(patsubst %/,%,$(dir $(1))))_cl.h: $(1)
 endef
 
 $(foreach f,$(CL_FILES),$(eval $(call BAKE_KERNEL,$(f))))
+
+# --- STRUCT BAKING  ---
+define BAKE_STRUCT
+$(OBJ_DIR)/$(notdir $(1:.h=_h.h)): $(1)
+	@mkdir -p $$(dir $$@)
+	@echo "Baking struct $$(notdir $(1)) into $$@"
+	cd $$(dir $(1)) && xxd -i $$(notdir $(1)) > $$(abspath $$@)
+endef
+
+$(foreach f,$(CL_H_FILES),$(eval $(call BAKE_STRUCT,$(f))))
+
 
 .PHONY: run clean
 

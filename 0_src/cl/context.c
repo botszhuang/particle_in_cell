@@ -1,6 +1,6 @@
-#include <cl_platform_struct.h>
+#include <platform.h>
 
-void create_context ( cl_platform_struct * a ){
+void create_context ( platform_struct * a ){
 
    cl_int ret = 0 ;
 

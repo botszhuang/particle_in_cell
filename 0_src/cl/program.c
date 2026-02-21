@@ -1,20 +1,27 @@
 #include <stdlib.h>
 
-#include <cl_platform_struct.h>
+#include <platform.h>
 
 #include "hello_world_cl.h"
-
-void init_program( cl_platform_struct * g ){
+#include "dimension_h.h"
+#include "particle_pusher_cl.h"
+void init_program( platform_struct * g ){
   
-    const char* sources[] = { (char*)hello_world_cl };
-    size_t sizes[] = { hello_world_cl_len };
+    const char* sources[] = { (char*)dimension_h, 
+                              (char*)hello_world_cl, 
+                              (char*)particle_pusher_cl };
+    const size_t sizes[] = { dimension_h_len, 
+                             hello_world_cl_len, 
+                             particle_pusher_cl_len } ;
 
     unsigned int count = sizeof ( sources ) / sizeof ( sources[0] ) ;
 
+    const char * options = NULL;
+    
     cl_int err = 0 ;
 
     g->program = clCreateProgramWithSource( g->context , count , sources, sizes, &err);
-    err = clBuildProgram( g->program , g->device_N , g->devices , NULL , NULL, NULL) ;
+    err = clBuildProgram( g->program , g->device_N , g->devices , options , NULL, NULL) ;
     if ( err != CL_SUCCESS ) {
         printf("Error building program: %d\n", err);
         for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {

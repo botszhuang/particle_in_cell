@@ -1,7 +1,7 @@
 
-#include <cl_platform_struct.h>
+#include <platform.h>
 
-void free_platform_struct ( cl_platform_struct * g ) {
+void free_platform_struct ( platform_struct * g ) {
     
     cl_int ret = 0 ;
 

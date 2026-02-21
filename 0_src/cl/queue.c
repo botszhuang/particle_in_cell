@@ -1,6 +1,6 @@
-#include <cl_platform_struct.h>
+#include <platform.h>
 
-void create_queue( cl_platform_struct * a ){
+void create_queue( platform_struct * a ){
     
     cl_int ret = 0 ;
 
@@ -20,7 +20,7 @@ void create_queue( cl_platform_struct * a ){
     }
 }
 
-void finish_queue ( cl_platform_struct * g ){
+void finish_queue ( platform_struct * g ){
     for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
         CL_CHECK( clFlush (g->queue [ i ] ) );
         CL_CHECK( clFinish(g->queue [ i ] ) );

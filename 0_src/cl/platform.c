@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include <cl_platform_struct.h>
+#include <platform.h>
 
 #define printLine()   { printf("\t--------------------------\n"); }
 
@@ -51,7 +51,6 @@ unsigned int list_devices( cl_platform_id platform_id , bool print ) {
 
     return n ;
 }
-
 
 void print_a_platform_info ( const cl_platform_id id ) {
 
@@ -119,7 +118,7 @@ void print_all_platform_info (){
 
 }
 
-void select_the_platform (  cl_platform_struct * g ) {
+void select_the_platform (  platform_struct * g ) {
 
     printf("### Selecting the platform with GPU devices ......\n") ;
 

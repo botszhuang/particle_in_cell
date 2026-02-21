@@ -1,9 +1,9 @@
 #include <get_input_info.h>
 #include <stdio.h>
 
-double * relloacte_list_memory( double * list , unsigned int new_size ) {
+myfloat * relloacte_list_memory( myfloat * list , unsigned int new_size ) {
 
-    double * listtmp = realloc( list , new_size * sizeof( double ) ) ;
+    myfloat * listtmp = realloc( list , new_size * sizeof( myfloat ) ) ;
 
     if ( listtmp == NULL ) {
         printf("Error: Failed to reallocate memory for list.\n");
@@ -14,7 +14,7 @@ double * relloacte_list_memory( double * list , unsigned int new_size ) {
 
 }
 
-double * read_double ( size_t * out_size ,  char * inputFile ) {
+myfloat * read_myfloat ( size_t * out_size ,  char * inputFile ) {
 
     unsigned int counter = 0 ;
 
@@ -25,13 +25,13 @@ double * read_double ( size_t * out_size ,  char * inputFile ) {
     }
 
     size_t listN = 10 ;
-    double * list = calloc( listN , sizeof( double ) ) ;
+    myfloat * list = calloc( listN , sizeof( myfloat ) ) ;
     
     const unsigned int buffer_size = 128 ;
     char * buffer = calloc( buffer_size , sizeof(char) ) ;
     char * ptr ; 
     char * next_ptr;
-    double val ;
+    myfloat val ;
 
     while ( fgets( buffer, buffer_size, fptr) != NULL) {
        
@@ -92,7 +92,7 @@ int read_2D ( dnD ** out , char * inputFile ) {
 
     size_t counter = 0 ;
    
-    double * list = read_double ( &counter , inputFile ) ;
+    myfloat * list = read_myfloat ( &counter , inputFile ) ;
 
     if ( list == NULL ) { return 0 ; } 
     if ( check_size_of_list ( counter , nD ) != EXIT_SUCCESS ) { free(list); return 0 ; }
