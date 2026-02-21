@@ -50,6 +50,17 @@ int main( int argc , char * argv[]  ){
     get_grid_memory     ( &grids     , gpu.context ) ;
     get_particle_memory ( &particles , gpu.context ) ;
 
+    cl_bool asynchronous = CL_FALSE ;
+    unsigned int offset = 0 ;
+
+    const cl_int write_event_count = 3 ;
+    cl_event write_event [ write_event_count ] ;
+    CL_CHECK ( clEnqueueWriteBuffer( gpu.queue[0], grids.cl_position    ,  asynchronous,    offset,  grids.cl_position_bytes    , grids.position    , 0, NULL, write_event   ) ) ;
+    CL_CHECK ( clEnqueueWriteBuffer( gpu.queue[0], particles.cl_position,  asynchronous,    offset,  particles.cl_position_bytes, particles.position, 0, NULL, write_event+1 ) ) ;
+    CL_CHECK ( clEnqueueWriteBuffer( gpu.queue[0], particles.cl_velocity,  asynchronous,    offset,  particles.cl_velocity_bytes, particles.velocity, 0, NULL, write_event+2 ) ) ;
+    
+    CL_CHECK( clWaitForEvents( write_event_count , write_event ) );
+    for ( int i = 0 ; i < write_event_count ; i++ ){ CL_CHECK( clReleaseEvent( write_event [ i ] )   ) ;  }
 
     finish_queue ( &gpu );
 
