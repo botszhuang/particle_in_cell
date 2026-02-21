@@ -86,6 +86,7 @@ void print_a_platform_info ( const cl_platform_id id ) {
 
 void print_all_platform_info (){
 
+    puts ("### Listing all OpenCL platforms and their devices:") ;
 
     cl_platform_id * list ;
     cl_uint n = 0 ;
@@ -112,14 +113,15 @@ void print_all_platform_info (){
         list_devices( list [ i ] , true ) ;
         printLine() ;
 
-
     }
-
+    
     free ( list ) ;
 
 }
 
 void select_the_platform (  cl_platform_struct * g ) {
+
+    printf("### Selecting the platform with GPU devices ......\n") ;
 
     cl_uint n = 0 ;
     cl_platform_id * list ;
@@ -149,5 +151,6 @@ void select_the_platform (  cl_platform_struct * g ) {
     free ( list ) ;
 
     print_a_platform_info ( g->platform ) ;
-
+    list_devices( g->platform , true ) ;
+    printLine() ;
 }
