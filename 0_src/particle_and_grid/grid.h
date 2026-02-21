@@ -1,16 +1,9 @@
 #pragma once
 #include <cl_version.h>
 #include <dimension.h>
+#include <get_input_info.h>
+#include <grid_struct.h>
 
-#define grid_dimension dimension_2D_struct
-
-typedef struct{
-
-    unsigned int number;
-    grid_dimension * position ;
-
-    unsigned int cl_position_bytes ;
-    cl_mem cl_position ;
-
-} grid_struct ;
+void get_grid_profile ( grid_struct * grids ,  input_tex_tag_struct * input_tag ) ;
+void get_grid_memory ( grid_struct * grids , cl_context context ) ;
 

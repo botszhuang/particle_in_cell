@@ -1,10 +1,9 @@
 
 #include <cl_platform_struct.h>
 #include <cl_kernel_list.h>
-#include <input.h>
 #include <grid.h>
 #include <particle.h>
-#include <input_tex_tag_struct.h>
+#include <get_input_info.h>
 
 int main( int argc , char * argv[]  ){
 
@@ -17,8 +16,8 @@ int main( int argc , char * argv[]  ){
   
     printf("Hello world!\n") ;
 
+    // initialize the platform
     print_all_platform_info () ;
-
 
     cl_platform_struct gpu ;
 
@@ -39,35 +38,17 @@ int main( int argc , char * argv[]  ){
     
     // read input.tex
     input_tex_tag_struct input_tag ;
+    get_input_tex ( &input_tag , inputFile ) ;
 
-    init_read_input_tex( inputFile ) ;
-    input_tag.grid_file = read_input_tex( "grid_file" ) ;
-    input_tag.particle_position_file = read_input_tex( "particle_position_file" ) ;
-    input_tag.particle_velocity_file = read_input_tex( "particle_velocity_file" ) ;
-    close_read_input_tex() ;
 
     grid_struct grids ;
     particle_struct particles ;
 
-    grids.number     = read_2D( & ( grids.position )     , input_tag.grid_file              ) ;
-    particles.number = read_2D( & ( particles.position ) , input_tag.particle_position_file ) ;
-    particles.number = read_2D( & ( particles.velocity ) , input_tag.particle_velocity_file ) ;
+    get_grid_profile     ( &grids     , &input_tag ) ;
+    get_particle_profile ( &particles , &input_tag ) ;
 
-    print_2D_list( grids.position     , grids.number     ) ;
-    print_2D_list( particles.position , particles.number ) ;
-    print_2D_list( particles.velocity , particles.number ) ;
-
-    grids.cl_position_bytes         = grids.number     * sizeof( grid_dimension     ) ;
-    grids.cl_position = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , grids.cl_position_bytes , grids.position , NULL ) ;
-
-    particles.cl_position_bytes     = particles.number * sizeof( particle_dimension ) ;
-    particles.cl_velocity_bytes     = particles.number * sizeof( particle_dimension ) ;
-    particles.cl_acceleration_bytes = particles.number * sizeof( particle_dimension ) ;
-
-    particles.cl_position     = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_position_bytes     , particles.position , NULL ) ;
-    particles.cl_velocity     = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_velocity_bytes     , particles.velocity , NULL ) ;
-    particles.cl_acceleration = clCreateBuffer( gpu.context , CL_MEM_READ_WRITE , particles.cl_acceleration_bytes , particles.acceleration , NULL ) ;
-
+    get_grid_memory     ( &grids     , gpu.context ) ;
+    get_particle_memory ( &particles , gpu.context ) ;
 
 
     finish_queue ( &gpu );

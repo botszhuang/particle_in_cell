@@ -10,3 +10,4 @@ typedef struct {
     
 } input_tex_tag_struct ;
 
+void get_input_tex ( input_tex_tag_struct * input_tag ,  char * inputFile ) ;

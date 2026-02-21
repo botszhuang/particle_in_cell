@@ -6,15 +6,16 @@ void create_queue( cl_platform_struct * a ){
 
     a->queue = calloc ( a->device_N , sizeof ( a->queue[0] ) ) ;
 
+    const cl_command_queue_properties properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+    const cl_queue_properties props[] = { CL_QUEUE_PROPERTIES, properties, 0 } ; // OpenCL 2.0+ , preferred
     for ( unsigned int i = 0 ; i < a->device_N ; i++ ) {
 
         #if defined(CL_VERSION_2_0) || (CL_VERSION_3_0)
             //OpenCL 2.0+ headers, preferred
-            const cl_queue_properties props[] = { 0 };
                 a->queue [ i ] = clCreateCommandQueueWithProperties( a->context, a->devices [ i ], props, &ret);
         #else
             // OpenCL 1.2
-            a->queue [ i ] = clCreateCommandQueue( a->context, a->devices [ i ] , 0, &ret); CL_CHECK( ret ) ;
+            a->queue [ i ] = clCreateCommandQueue( a->context, a->devices [ i ] , properties, &ret); CL_CHECK( ret ) ;
         #endif
     }
 }

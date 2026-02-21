@@ -6,9 +6,10 @@ gridFile = path+"grid.tex"
 particle_XFile = path+"particle_position.tex"
 particle_VFile = path+"particle_velocity.tex"
 
-xboundarys = [ 0, 10 ]
-yboundarys = [ 0, 10 ]
+xboundarys = [ 0, 3 ]
+yboundarys = [ 0, 3 ]
 vMax = 0.5
+particle_number = 100
 
 #initialize the input directory
 if not os.path.exists( path ):
@@ -39,7 +40,7 @@ with open( particle_XFile , "w" ) as X:
         X.write( "# x y\n" )
         V.write( "# vx vy\n" )    
         
-        for i in range( 1000 ):
+        for i in range( particle_number ):
 
             #position
             x = np.random.rand() * xWidth + xboundarys[0]
