@@ -1,4 +1,4 @@
-PROJECT_NAME := /home/botsz/code/ghost_at_particle_in_cell
+PROJECT_NAME := ..
 # Ensure these paths exist on your system
 CUDA_INC     := /usr/local/cuda/include
 CUDA_LIB     := /usr/local/cuda/lib64

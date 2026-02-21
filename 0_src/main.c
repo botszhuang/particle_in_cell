@@ -1,14 +1,10 @@
 
 #include <cl_platform_struct.h>
 #include <cl_kernel_list.h>
-#include <input/input.h>
-#include <particle_and_grid/grid.h>
-#include <particle_and_grid/particle.h>
-
-typedef struct{
-    particle_struct particles ;    
-    grid_struct grids ;
-} data_struct ;
+#include <input.h>
+#include <grid.h>
+#include <particle.h>
+#include <input_tex_tag_struct.h>
 
 int main( int argc , char * argv[]  ){
 
@@ -40,22 +36,28 @@ int main( int argc , char * argv[]  ){
     create_hello_world_kernel ( &hello_world_kernel , gpu.program ) ;
     run_kernel_hello_world ( hello_world_kernel , gpu.queue[0] ) ;
 
+    
+    // read input.tex
+    input_tex_tag_struct input_tag ;
 
-    key_value_pair_struct * keys = set_key( ) ;
-    read_parameters( keys , inputFile ) ;
-    print_parameters( keys ) ;
+    init_read_input_tex( inputFile ) ;
+    input_tag.grid_file = read_input_tex( "grid_file" ) ;
+    input_tag.particle_position_file = read_input_tex( "particle_position_file" ) ;
+    input_tag.particle_velocity_file = read_input_tex( "particle_velocity_file" ) ;
+    close_read_input_tex() ;
 
-    data_struct data ;
+    grid_struct grids ;
+    particle_struct particles ;
 
-    data.grids.number = read_2D( & ( data.grids.position ) , keys[0].value ) ;
-    print_2D_list( data.grids.position , data.grids.number ) ;
+    grids.number     = read_2D( & ( grids.position )     , input_tag.grid_file              ) ;
+    particles.number = read_2D( & ( particles.position ) , input_tag.particle_position_file ) ;
+    particles.number = read_2D( & ( particles.velocity ) , input_tag.particle_velocity_file ) ;
 
-    data.particles.number = read_2D( & ( data.particles.position ) , keys[1].value ) ;
-    print_2D_list( data.particles.position , data.particles.number ) ;
+    print_2D_list( grids.position     , grids.number     ) ;
+    print_2D_list( particles.position , particles.number ) ;
+    print_2D_list( particles.velocity , particles.number ) ;
 
-    data.particles.number = read_2D( & ( data.particles.velocity ) , keys[2].value ) ;
-    print_2D_list( data.particles.velocity , data.particles.number ) ;
-
+    
 
     finish_queue ( &gpu );
 
