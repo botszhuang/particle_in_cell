@@ -4,7 +4,7 @@
 
 #include <cl_platform_struct.h>
 
-#define printLine()   { printf("--------------------------\n"); }
+#define printLine()   { printf("\t--------------------------\n"); }
 
 
 void get_device_ids ( cl_platform_id platform_id , cl_device_id ** dev , unsigned int * dev_n ){
@@ -152,5 +152,4 @@ void select_the_platform (  cl_platform_struct * g ) {
 
     print_a_platform_info ( g->platform ) ;
     list_devices( g->platform , true ) ;
-    printLine() ;
 }

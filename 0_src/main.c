@@ -5,9 +5,9 @@
 #include <particle.h>
 #include <get_input_info.h>
 
-void get_memory ( grid_struct * grids , particle_struct * particles , cl_context context ) ;
-void free_memory ( grid_struct * grids , particle_struct * particles ) ;
-void write_grid_and_particle_to_device ( grid_struct * grids , particle_struct * particles , cl_command_queue queue , cl_event * write_event ) ;
+#define printLine()   { printf("-----------------------\n"); }
+
+void release_event_array ( cl_event * event_array , unsigned int event_count ) ;
 
 int main( int argc , char * argv[]  ){
 
@@ -17,7 +17,7 @@ int main( int argc , char * argv[]  ){
     }
 
     char * inputFile = argv[1] ;
-  
+    printLine() ; 
     printf("Hello world!\n") ;
 
     // read input.tex
@@ -38,66 +38,50 @@ int main( int argc , char * argv[]  ){
 
     init_program ( &gpu );
 
+    puts("### Running hello world kernel ......") ;
     cl_kernel hello_world_kernel ;
     create_hello_world_kernel ( &hello_world_kernel , gpu.program ) ;
     run_kernel_hello_world ( hello_world_kernel , gpu.queue[0] ) ;
-
+  
     
-
-
-
-  /*  grid_struct grids ;
+    grid_struct grids ;
     particle_struct particles ;
 
-    get_grid_profile     ( &grids     , &input_tag ) ;
+    get_grid_profile ( &grids , &input_tag ) ;
     get_particle_profile ( &particles , &input_tag ) ;
-    get_memory ( &grids , &particles , gpu.context ) ;
 
-    const cl_int write_event_count = 3 ;
-    cl_event write_event [ write_event_count ] ;
+    get_grid_memory ( &grids , gpu.context ) ;
+    get_particle_memory ( &particles , gpu.context ) ;
 
-    write_grid_and_particle_to_device ( &grids , &particles , gpu.queue[0] , write_event ) ;
-    
-    CL_CHECK( clWaitForEvents( write_event_count , write_event ) );
-    for ( int i = 0 ; i < write_event_count ; i++ ){ CL_CHECK( clReleaseEvent( write_event [ i ] )   ) ;  }
-*/
+
+    const cl_int write_grid_count     = 1 ;
+    const cl_int write_particle_count = 2 ;
+    cl_event write_grid_event     [ write_grid_count     ] ;
+    cl_event write_particle_event [ write_particle_count ] ;
+
+    write_grid_to_device     ( &grids     , gpu.queue[0] , write_grid_event ) ;
+    write_particle_to_device ( &particles , gpu.queue[0] , write_particle_event ) ;
+
+    CL_CHECK( clWaitForEvents( write_grid_count, write_grid_event ) );
+    CL_CHECK( clWaitForEvents( write_particle_count, write_particle_event ) );
+
+    release_event_array( write_grid_event     , write_grid_count     ) ;
+    release_event_array( write_particle_event , write_particle_count ) ;
+
+
     finish_queue ( &gpu );
 
     free_k ( hello_world_kernel ) ;
-//    free_memory ( &grids , &particles ) ;
+    free_grid_memory ( &grids ) ;
+    free_particle_memory ( &particles ) ;
     free_platform_struct ( &gpu ) ;
 
 
     return EXIT_SUCCESS;
 }
 
-void get_memory ( grid_struct * grids , particle_struct * particles , cl_context context ) {
-
-    cl_int ret = 0 ;  
-
-    grids->cl_position_bytes = grids->number     * sizeof( grid_dimension     ) ;
-    grids->cl_position = clCreateBuffer( context , CL_MEM_READ_WRITE , grids->cl_position_bytes , NULL , &ret ) ; CL_CHECK( ret ) ; 
-
-
-    particles->cl_position_bytes     = particles->number * sizeof( particle_dimension ) ;
-    particles->cl_velocity_bytes     = particles->number * sizeof( particle_dimension ) ;
-    particles->cl_acceleration_bytes = particles->number * sizeof( particle_dimension ) ;
-
-    particles->cl_position     = clCreateBuffer( context , CL_MEM_READ_WRITE , particles->cl_position_bytes     , NULL , &ret ) ; CL_CHECK( ret ) ;
-    particles->cl_velocity     = clCreateBuffer( context , CL_MEM_READ_WRITE , particles->cl_velocity_bytes     , NULL , &ret ) ; CL_CHECK( ret ) ;
-    particles->cl_acceleration = clCreateBuffer( context , CL_MEM_READ_WRITE , particles->cl_acceleration_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
-
-}
-void free_memory ( grid_struct * grids , particle_struct * particles ) {
-    CL_CHECK( clReleaseMemObject( grids->cl_position ) ) ;
-    CL_CHECK( clReleaseMemObject( particles->cl_position ) ) ;
-    CL_CHECK( clReleaseMemObject( particles->cl_velocity ) ) ;
-    CL_CHECK( clReleaseMemObject( particles->cl_acceleration ) ) ;
-}
-void write_grid_and_particle_to_device ( grid_struct * grids , particle_struct * particles , cl_command_queue queue , cl_event * write_event ) {
-    const cl_bool asynchronous = CL_FALSE ;
-    const unsigned int offset = 0 ;
-    CL_CHECK ( clEnqueueWriteBuffer( queue, grids->cl_position    ,  asynchronous,    offset,  grids->cl_position_bytes    , grids->position    , 0, NULL, write_event   ) ) ;
-    CL_CHECK ( clEnqueueWriteBuffer( queue, particles->cl_position,  asynchronous,    offset,  particles->cl_position_bytes, particles->position, 0, NULL, write_event+1 ) ) ;
-    CL_CHECK ( clEnqueueWriteBuffer( queue, particles->cl_velocity,  asynchronous,    offset,  particles->cl_velocity_bytes, particles->velocity, 0, NULL, write_event+2 ) ) ;
+void release_event_array ( cl_event * event_array , unsigned int event_count ) {
+    for ( unsigned int i = 0 ; i < event_count ; i++ ) {
+        CL_CHECK( clReleaseEvent( event_array[i] ) ) ;
+    }
 }

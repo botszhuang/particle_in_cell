@@ -14,9 +14,14 @@ void create_hello_world_kernel ( cl_kernel * k , cl_program p ){
 
 void run_kernel_hello_world ( cl_kernel k , cl_command_queue queue ){
 
+    cl_event event ;
+
     clEnqueueNDRangeKernel( queue,
                             k , 1, NULL,
                             &global_item_size,
                             &local_item_size,
-                            0, NULL, NULL );
+                            0, NULL, &event );
+                            
+    clWaitForEvents( 1, &event );
+    clReleaseEvent( event );
 }
