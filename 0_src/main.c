@@ -13,9 +13,11 @@ typedef struct {
     cl_mem X ;
     cl_mem V ;
     cl_mem F ;
+    cl_mem mass ;
     size_t X_bytes ;
     size_t V_bytes ;
-    size_t F_bytes    ;
+    size_t F_bytes ;
+    size_t mass_bytes ;
 } particle_cl_mem_struct ;
 typedef struct {
     cl_mem X ;
@@ -33,6 +35,7 @@ typedef struct{
 } grid_struct ;
 typedef struct {
    myfloat dt ;
+   myfloat current_T ;
    particle_struct particle ;
    particle_cl_mem_struct particle_cl_mem ;
    grid_struct grid ;
@@ -56,6 +59,7 @@ int main( int argc , char * argv[]  ){
     printLine() ; 
     printf("Hello world!\n") ;
 
+    // --------------------------------------------------------------------------
     // initialize the platform
     print_all_platform_info () ;
     platform_struct gpu ;
@@ -70,23 +74,25 @@ int main( int argc , char * argv[]  ){
     puts("### Running hello world kernel ......") ;
     create_hello_world_kernel ( &hello_world_kernel , gpu.program ) ;
     run_kernel_hello_world ( hello_world_kernel , gpu.queue[0] ) ;
+    // --------------------------------------------------------------------------
 
     // events' parameters
     const cl_int write_grid_count     = 1 ;
     const cl_int write_particle_count = 2 ;
     cl_event_struct write_events = initEventStruct ( write_grid_count + write_particle_count ) ;
-    cl_event_struct particle_pusher_events = initEventStruct( 1 ) ;
-    
-    lauch_kernel_struct particle_pusher ;
 
     cl_uint work_dim = 1 ;
     size_t global_work_offset[1] = {0} ;
     size_t global_work_size[1] = {1} ;
     size_t local_work_size[1] = {1} ;
 
+    // leap frog method
+    leap_frog_kernel_struct leap_frog ;
+    cl_event_struct leap_frog_X_events = initEventStruct( 1 ) ;
+    cl_event_struct leap_frog_V_half_events = initEventStruct( 1 ) ;
+
     puts("### Creating particle pusher kernel ......") ;
-    create_particle_pusher_kernel ( & particle_pusher , gpu , work_dim , global_work_offset , global_work_size ,  local_work_size  ) ;
- 
+    create_leap_frog_kernel ( &leap_frog, gpu,  work_dim, global_work_offset, global_work_size, local_work_size ) ; 
     
     // read input.tex
     input_tex_tag_struct input_tag ;
@@ -100,32 +106,44 @@ int main( int argc , char * argv[]  ){
     puts("### Allocating memory for grid and particle on the device ......") ;
     create_dev_memory ( &data , &gpu ) ;
 
-    puts("### Setting the arguments for kernel: particle pushe ......") ;
-    set_particle_pusher_kernel_args ( & particle_pusher , 
-                                    &( data.particle_cl_mem.X ) , 
-                                    &( data.particle_cl_mem.V ) ,
-                                    &( data.particle_cl_mem.F ) ,
-                                    &( data.particle.number   ) ,
-                                    &( data.dt                )  ) ;
-
     puts("### Writing grid and particle data to the device ......") ;
     write_data_to_device     ( &data  , gpu.queue[0] , write_events.array ) ;
     //waitForEvents ( write_events ) ;
-    //releaseEventArray ( write_events ) ;
 
-
+    puts("### Setting the arguments for kernel: particle pushe ......") ;
+    set_leap_frog_kernel_args ( & leap_frog , 
+                                &( data.particle_cl_mem.X ), &( data.particle_cl_mem.V ), &( data.particle_cl_mem.F ) ,
+                                &( data.particle.number   ), &( data.dt )  ) ;
+    // --------------------------------------------------------------------------
 
     puts("### Running particle pusher kernel ......") ;
-    run_kernel ( & particle_pusher , gpu.queue[0] , write_events , particle_pusher_events.array ) ;
 
+    
+    // leap frog step 0 : init V_half
+    run_init_leap_frog_V_half_kernel ( & leap_frog , data.dt , gpu.queue[0] , write_events , leap_frog_V_half_events.array ) ;
+    releaseEventArray( write_events ) ;
+    
+    for ( unsigned int i = 0 ; i < 5 ; i++ ) {
+        // leap frog step 1 :
+        run_leap_frog_X_kernel      ( & leap_frog , gpu.queue[0] , leap_frog_V_half_events , leap_frog_X_events.array ) ;
+        releaseEventArray( leap_frog_V_half_events ) ;
+        
+        // leap frog step 2 :   a = A(x)  compute A
+
+        // leap frog step 3 :
+        run_leap_frog_V_half_kernel ( & leap_frog , gpu.queue[0] , leap_frog_X_events , leap_frog_V_half_events.array ) ;
+        releaseEventArray( leap_frog_X_events ) ;
+    }
     puts("### Waiting for the kernels to finish ......") ;
-    waitForEvents( particle_pusher_events );
-    releaseEventArray( particle_pusher_events ) ;
+    waitForEvents( leap_frog_V_half_events );
 
     finish_queue ( &gpu );
+    
+    releaseEventArray( leap_frog_V_half_events ) ;
+
 
     free_kernel ( hello_world_kernel ) ;
-    free_kernel ( particle_pusher.kernel ) ;
+    free_leap_frog_kernel ( & leap_frog ) ;
     free_dev_memory ( & data ) ;
     free_platform_struct ( &gpu ) ;
 
@@ -147,6 +165,9 @@ void get_input_tex ( input_tex_tag_struct * input_tag ,  char * inputFile ){
 #define gCL data->grid_cl_mem
 void get_data_profile ( data_struct * data , input_tex_tag_struct * tag ) {
     
+    data->current_T = 0 ;
+    data->dt = 0.1 ;
+
     // grid
     g.number = read_2D( & ( g.X ) , tag->grid_file ) ; 
     
@@ -167,9 +188,9 @@ void create_dev_memory ( data_struct * data , platform_struct * gpu ) {
     gCL.X = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , gCL.X_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
 
     // particle
-    pCL.X_bytes = p.number * sizeof( particle_dimension ) ;
-    pCL.V_bytes = p.number * sizeof( particle_dimension ) ;
-    pCL.F_bytes = p.number * sizeof( particle_dimension ) ;
+    pCL.X_bytes = p.number * sizeof( p.X[0] ) ;
+    pCL.V_bytes = p.number * sizeof( p.V[0] ) ;
+    pCL.F_bytes = p.number * sizeof( p.F[0] ) ;
 
     pCL.X = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , pCL.X_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
     pCL.V = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , pCL.V_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;

@@ -22,15 +22,6 @@ typedef struct{
     const unsigned int count ; 
 } cl_event_struct ;
 
-typedef struct {
-    cl_kernel kernel;
-    cl_uint work_dim;
-    size_t *global_work_offset;
-    size_t *global_work_size;
-    size_t *local_work_size;
-} lauch_kernel_struct ;
-
-
 void print_all_platform_info () ;
 void print_a_platform_info ( const cl_platform_id id ) ;
 void select_the_platform  ( platform_struct * g ) ;
@@ -54,7 +45,3 @@ cl_event_struct initEventStruct( const unsigned int n) ;
 
 // kernel
 #define free_kernel(x) { if ( x ){ clReleaseKernel ( x ) ; } }
-void run_kernel ( lauch_kernel_struct * k , 
-                  cl_command_queue queue , 
-                  cl_event_struct waitForEvent,
-                  cl_event *event ) ;

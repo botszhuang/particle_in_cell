@@ -3,16 +3,16 @@
 #include <platform.h>
 
 #include "hello_world_cl.h"
+#include "leap_frog_cl.h"
 #include "dimension_h.h"
-#include "particle_pusher_cl.h"
 void init_program( platform_struct * g ){
   
     const char* sources[] = { (char*)dimension_h, 
                               (char*)hello_world_cl, 
-                              (char*)particle_pusher_cl };
+                              (char*)leap_frog_cl };
     const size_t sizes[] = { dimension_h_len, 
                              hello_world_cl_len, 
-                             particle_pusher_cl_len } ;
+                             leap_frog_cl_len } ;
 
     unsigned int count = sizeof ( sources ) / sizeof ( sources[0] ) ;
 
