@@ -32,6 +32,7 @@ typedef struct{
     grid_dimension * X ;
 } grid_struct ;
 typedef struct {
+   myfloat dt ;
    particle_struct particle ;
    particle_cl_mem_struct particle_cl_mem ;
    grid_struct grid ;
@@ -104,7 +105,8 @@ int main( int argc , char * argv[]  ){
                                     &( data.particle_cl_mem.X ) , 
                                     &( data.particle_cl_mem.V ) ,
                                     &( data.particle_cl_mem.F ) ,
-                                    &  data.particle.number   ) ;
+                                    &( data.particle.number   ) ,
+                                    &( data.dt                )  ) ;
 
     puts("### Writing grid and particle data to the device ......") ;
     write_data_to_device     ( &data  , gpu.queue[0] , write_events.array ) ;

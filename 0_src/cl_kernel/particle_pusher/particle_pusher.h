@@ -2,6 +2,7 @@
 
 #include <cl_version.h>
 #include <platform.h>
+#include <dimension.h>
 
 void create_particle_pusher_kernel ( lauch_kernel_struct * k,
                                     platform_struct platform , 
@@ -14,4 +15,5 @@ void set_particle_pusher_kernel_args ( lauch_kernel_struct * k ,
                                        cl_mem * position ,
                                        cl_mem * velocity ,
                                        cl_mem * force ,
-                                       const size_t * particle_N ) ;
+                                       size_t * particle_N , 
+                                       myfloat * dt ) ;
