@@ -1,9 +1,21 @@
 #ifndef DIMENSION_H
 #define DIMENSION_H
 
+#ifdef __OPENCL_VERSION__
+    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+    #define ALIGN(x) 
+#else
+    // 2. Handle Host (C/C++) alignment
+    #if defined(_MSC_VER)
+        #define ALIGN(x) __declspec(align(x)) // For Visual Studio
+    #else
+        #define ALIGN(x) __attribute__((aligned(x))) // For GCC/Clang
+    #endif
+#endif
+
 #define myfloat double
 
-typedef struct{
+typedef struct ALIGN(16){
     myfloat x ;
     myfloat y ;
 } dimension_2D_struct ;
@@ -11,9 +23,5 @@ typedef struct{
 #define particle_dimension dimension_2D_struct
 #define grid_dimension     dimension_2D_struct
 
-#define copy_2D(dest,src) { dest.x = src.x ; dest.y = src.y ;}
-//#define add_2D(dest,src,m)       { dest.x = src.x + m.x ; dest.y = src.y + m.y ; }
-//#define div_2D(dest,src,m)       { dest.x = src.x / m ; dest.y = src.y / m ; }
-//#define multiple_2D(dest,src,m)  { dest.x = src.x * m ; dest.y = src.y * m ; }
 #endif
 

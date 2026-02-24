@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <platform.h>
 #include <get_input_info.h>
 #include <cl_kernel_list.h>
@@ -14,6 +15,7 @@ typedef struct {
     cl_mem V ;
     cl_mem F ;
     cl_mem mass ;
+    cl_mem dt ;
     size_t X_bytes ;
     size_t V_bytes ;
     size_t F_bytes ;
@@ -34,8 +36,8 @@ typedef struct{
     grid_dimension * X ;
 } grid_struct ;
 typedef struct {
-   myfloat dt ;
    myfloat current_T ;
+   myfloat dt ;
    particle_struct particle ;
    particle_cl_mem_struct particle_cl_mem ;
    grid_struct grid ;
@@ -47,6 +49,7 @@ void get_data_profile     ( data_struct * data , input_tex_tag_struct * tag );
 void create_dev_memory    ( data_struct * data , platform_struct * g ) ;
 void free_dev_memory      ( data_struct * data ) ;
 void write_data_to_device ( data_struct *data , cl_command_queue queue , cl_event * write_event ) ;
+void read_data_to_host ( data_struct * data , cl_command_queue queue , cl_event_struct wait , cl_event_struct read ) ;
 
 int main( int argc , char * argv[]  ){
 
@@ -90,9 +93,13 @@ int main( int argc , char * argv[]  ){
     const cl_int write_grid_count     = 1 ;
     const cl_int write_particle_count = 2 ;
     cl_event_struct write_events = initEventStruct ( write_grid_count + write_particle_count ) ;
-    cl_event_struct leap_frog_X_events = initEventStruct( 1 ) ;
+    
     cl_event_struct leap_frog_V_half_events = initEventStruct( 1 ) ;
+    cl_event_struct leap_frog_X_events = initEventStruct( 1 ) ;
     cl_event_struct force_events = initEventStruct ( 1 ) ;
+
+    const cl_int read_event_count = 3 ;
+    cl_event_struct read_events = initEventStruct ( read_event_count ) ;
 
     cl_uint work_dim = 1 ;
     size_t global_work_offset[1] = {0} ;
@@ -112,10 +119,6 @@ int main( int argc , char * argv[]  ){
     puts("### Allocating memory for grid and particle on the device ......") ;
     create_dev_memory ( &data , &gpu ) ;
 
-    puts("### Writing grid and particle data to the device ......") ;
-    write_data_to_device ( &data  , gpu.queue[0] , write_events.array ) ;
-    //waitForEvents ( write_events ) ;
-
     puts("### Setting the arguments for kernels ......") ;
     set_leap_frog_kernel_args ( & leap_frog , 
                                 &( data.particle_cl_mem.X ), &( data.particle_cl_mem.V ), &( data.particle_cl_mem.F ) ,
@@ -123,28 +126,44 @@ int main( int argc , char * argv[]  ){
     set_force_G_kernel_args ( & force , &( data.particle_cl_mem.F ), &( data.particle.number ) ) ;
 
     // --------------------------------------------------------------------------
+    puts("### Writing grid and particle data to the device ......") ;
+    write_data_to_device ( &data  , gpu.queue[0] , write_events.array ) ;
+    //waitForEvents ( write_events ) ;
 
     puts("### Running kernels ......") ;
+    
     // leap frog step 0 : init V_half
     run_init_leap_frog_V_half_kernel ( & leap_frog , data.dt , gpu.queue[0] , write_events , leap_frog_V_half_events.array ) ;
     releaseEventArray( write_events ) ;
-    
-    for ( unsigned int i = 0 ; i < 5 ; i++ ) {
+
+    //for ( unsigned int i = 0 ; i < read_event_count ; i++ ) { clSetUserEventStatus ( read_events.array [ i ] , CL_COMPLETE ) ; }
+
+    //for ( unsigned int i = 0 ; i < 5 ; i++ ) {
         // leap frog step 1 :
         run_leap_frog_X_kernel ( & leap_frog , gpu.queue[0] , leap_frog_V_half_events , leap_frog_X_events.array ) ;
         releaseEventArray( leap_frog_V_half_events ) ;
         
         // leap frog step 2 :   a = A(x)  compute A
-        run_force_G_kernel ( &force , gpu.queue[0] , leap_frog_X_events , force_events.array ) ;
-        releaseEventArray( leap_frog_X_events ) ;
+        run_force_G_kernel ( & force , gpu.queue[0] , leap_frog_X_events , force_events.array ) ;
 
         // leap frog step 3 :
         run_leap_frog_V_half_kernel ( & leap_frog , gpu.queue[0] , force_events , leap_frog_V_half_events.array ) ;
+ 
+        releaseEventArray( leap_frog_X_events ) ;       
         releaseEventArray( force_events ) ;
-    }
+
+        //if ( ( i+1 )% 5 ) { continue; }
+        //waitForEvents ( read_events ) ;
+        //releaseEventArray ( read_events ) ;
+        read_data_to_host ( & data , gpu.queue[0] , leap_frog_V_half_events , read_events ) ;
+
+    //}
     puts("### Waiting for the kernels to finish ......") ;
     waitForEvents( leap_frog_V_half_events );
     releaseEventArray( leap_frog_V_half_events ) ;
+    waitForEvents ( read_events ) ;
+    releaseEventArray ( read_events ) ;
+
 
     // --------------------------------------------------------------------------
     finish_queue ( &gpu );
@@ -181,10 +200,17 @@ void get_data_profile ( data_struct * data , input_tex_tag_struct * tag ) {
     // particle
     p.number = read_2D( & ( p.X ) , tag->particle_position_file ) ;
     p.number = read_2D( & ( p.V ) , tag->particle_velocity_file ) ;
+
+    p.F = calloc (  p.number , sizeof ( p.F[0] ) ) ;
     
     //print_2D_list( grid->position      , grid->number      ) ;
     //print_2D_list( particles->position , particles->number ) ;
     //print_2D_list( particles->velocity , particles->number ) ;
+
+    if ( p.X == NULL || p.V == NULL || p.F == NULL) {
+        fprintf(stderr, "Host memory allocation failed!\n");
+        exit (1) ;
+    }
 }
 void create_dev_memory ( data_struct * data , platform_struct * gpu ) {
 
@@ -198,11 +224,12 @@ void create_dev_memory ( data_struct * data , platform_struct * gpu ) {
     pCL.X_bytes = p.number * sizeof( p.X[0] ) ;
     pCL.V_bytes = p.number * sizeof( p.V[0] ) ;
     pCL.F_bytes = p.number * sizeof( p.F[0] ) ;
-
+    
     pCL.X = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , pCL.X_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
     pCL.V = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , pCL.V_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
     pCL.F = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , pCL.F_bytes , NULL , &ret ) ; CL_CHECK( ret ) ;
-}
+   
+ }
 void free_dev_memory ( data_struct * data ) {
     
     // grid
@@ -224,6 +251,16 @@ void write_data_to_device ( data_struct * data , cl_command_queue queue , cl_eve
     // particle
     CL_CHECK ( clEnqueueWriteBuffer( queue, pCL.X,  asynchronous, offset,  pCL.X_bytes, p.X, 0, NULL, write_event+1 ) ) ;
     CL_CHECK ( clEnqueueWriteBuffer( queue, pCL.V,  asynchronous, offset,  pCL.V_bytes, p.V, 0, NULL, write_event+2 ) ) ;
+}
+void read_data_to_host ( data_struct * data , cl_command_queue queue , cl_event_struct wait , cl_event_struct read ) {
+    
+    const cl_bool asynchronous = CL_FALSE ;
+    const unsigned int offset = 0 ;
+      
+    // particle
+    CL_CHECK ( clEnqueueReadBuffer( queue, pCL.X,  asynchronous, offset,  pCL.X_bytes, p.X, wait.count, wait.array , read.array   ) ) ;
+    CL_CHECK ( clEnqueueReadBuffer( queue, pCL.V,  asynchronous, offset,  pCL.V_bytes, p.V, wait.count, wait.array , ( read.array )+1 ) ) ;
+    CL_CHECK ( clEnqueueReadBuffer( queue, pCL.F,  asynchronous, offset,  pCL.F_bytes, p.F, wait.count, wait.array , ( read.array )+2 ) ) ;
 }
 #undef p
 #undef g

@@ -9,7 +9,7 @@ particle_VFile = path+"particle_velocity.tex"
 xboundarys = [ 0, 3 ]
 yboundarys = [ 0, 3 ]
 vMax = 0.5
-particle_number = 100
+particle_number = 10
 
 #initialize the input directory
 if not os.path.exists( path ):
@@ -43,13 +43,13 @@ with open( particle_XFile , "w" ) as X:
         for i in range( particle_number ):
 
             #position
-            x = np.random.rand() * xWidth + xboundarys[0]
-            y = np.random.rand() * yWidth + yboundarys[0]
+            x = i #np.random.rand() * xWidth + xboundarys[0]
+            y = 0 #np.random.rand() * yWidth + yboundarys[0]
             X.write( "%.6f %.6f\n" % ( x, y) )
 
             #velocity
-            vx = np.random.rand() * 2 * vMax - vMax
-            vy = np.random.rand() * 2 * vMax - vMax
+            vx = 0 #np.random.rand() * 2 * vMax - vMax
+            vy = 0 #np.random.rand() * 2 * vMax - vMax
             V.write( "%.6f %.6f\n" % ( vx, vy ) )
 
 

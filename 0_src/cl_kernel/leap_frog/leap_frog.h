@@ -27,6 +27,6 @@ void set_leap_frog_kernel_args ( leap_frog_kernel_struct * k ,
                                        cl_mem * acc ,
                                        size_t * particle_N , 
                                        myfloat * dt ) ;
-void run_init_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , myfloat dt , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ) ;
-void run_leap_frog_X_kernel      ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ) ;
-void run_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ) ;
+void run_init_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , myfloat dt , cl_command_queue queue , cl_event_struct wait, cl_event * event  ) ;
+void run_leap_frog_X_kernel      ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct wait, cl_event *event  ) ;
+void run_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct wait, cl_event *event  ) ;
