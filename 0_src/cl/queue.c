@@ -1,29 +1,26 @@
 #include <platform.h>
 
-void create_queue( platform_struct * a ){
-    
+static void sub_create_a_queue ( cl_command_queue * q , cl_context context, cl_device_id device , const cl_command_queue_properties properties ) {
+    const cl_queue_properties props[] = { CL_QUEUE_PROPERTIES, properties, 0 } ; // OpenCL 2.0+ , preferred
+
     cl_int ret = 0 ;
 
-    a->queue = calloc ( a->device_N , sizeof ( a->queue[0] ) ) ;
-
-    const cl_command_queue_properties properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
-    const cl_queue_properties props[] = { CL_QUEUE_PROPERTIES, properties, 0 } ; // OpenCL 2.0+ , preferred
-    for ( unsigned int i = 0 ; i < a->device_N ; i++ ) {
-
-        #if defined(CL_VERSION_2_0) || (CL_VERSION_3_0)
+    #if defined(CL_VERSION_2_0) || (CL_VERSION_3_0)
             //OpenCL 2.0+ headers, preferred
-                a->queue [ i ] = clCreateCommandQueueWithProperties( a->context, a->devices [ i ], props, &ret);
-        #else
+        *q = clCreateCommandQueueWithProperties( context, device , props, &ret); CL_CHECK ( ret ) ;
+    #else
             // OpenCL 1.2
-            a->queue [ i ] = clCreateCommandQueue( a->context, a->devices [ i ] , properties, &ret); CL_CHECK( ret ) ;
-        #endif
-    }
+        *q = clCreateCommandQueue( context, devices, properties, &ret); CL_CHECK( ret ) ;
+    #endif
 }
 
-void finish_queue ( platform_struct * g ){
-    for ( unsigned int i = 0 ; i < g->device_N ; i++ ) {
-        CL_CHECK( clFlush (g->queue [ i ] ) );
-        CL_CHECK( clFinish(g->queue [ i ] ) );
-    }
+void create_queue_in_order ( cl_command_queue * q , cl_context context, cl_device_id device ){
+    
+    sub_create_a_queue ( q , context, device , CL_QUEUE_PROFILING_ENABLE ) ; 
+    
 }
+void create_queue_out_of_order ( cl_command_queue * q , cl_context context, cl_device_id device ){
 
+    sub_create_a_queue ( q , context, device , CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE ) ; 
+   
+}
