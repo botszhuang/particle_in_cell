@@ -44,7 +44,7 @@ with open( particle_XFile , "w" ) as X:
 
             #position
             x = i #np.random.rand() * xWidth + xboundarys[0]
-            y = 0 #np.random.rand() * yWidth + yboundarys[0]
+            y = i #np.random.rand() * yWidth + yboundarys[0]
             X.write( "%.6f %.6f\n" % ( x, y) )
 
             #velocity

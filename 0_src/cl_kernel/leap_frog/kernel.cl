@@ -16,7 +16,7 @@ __kernel void leap_frog_X(
    const int gid = get_global_id (0) ;
    const int gtotal = get_global_size (0) ;
 
-   printf ("x: dt=%lf\n",dt);
+   //printf ("x: dt=%lf\n",dt);
 
    double2 x ;
    double2 v ;
@@ -44,7 +44,7 @@ __kernel void leap_frog_V_half(
    const int gid = get_global_id (0) ;
    const int gtotal = get_global_size (0) ;
 
-   printf ("v: dt=%lf\n",dt);
+   //printf ("v: dt=%lf\n",dt);
 
    double2 a ;
    double2 v ;

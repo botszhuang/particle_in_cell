@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <stdlib.h>
+#include <cl_erro_code.h>
 #include <platform.h>
 #include <get_input_info.h>
 #include <cl_kernel_list.h>
@@ -40,18 +41,7 @@ typedef struct{
     grid_dimension * X ;
 } grid_struct ;
 
-typedef struct {
-   myfloat current_T ;
-   myfloat dt ;
-   particle_struct particle ;
-   particle_cl_mem_struct particle_cl_mem ;
-   grid_struct grid ;
-   grid_cl_mem_struct grid_cl_mem ;
-}data_struct;
-
 void get_input_tex ( input_tex_tag_struct * input_tag ,  char * inputFile );
-void get_data_profile     ( data_struct * data , input_tex_tag_struct * tag );
-void create_dev_memory    ( data_struct * data , platform_struct * g ) ;
-void free_dev_memory      ( data_struct * data ) ;
-void write_data_to_device ( data_struct *data , cl_command_queue queue , cl_event * write_event ) ;
-void read_data_to_host ( data_struct * data , cl_command_queue queue , cl_event_struct wait ) ;
+void get_data_profile ( grid_struct * g , particle_struct * p , input_tex_tag_struct * tag ) ;
+void create_dev_memory ( grid_cl_mem_struct * gCL , particle_cl_mem_struct * pCL , const grid_struct g , const particle_struct p , platform_struct gpu ) ;
+void free_dev_memory ( grid_cl_mem_struct * gCL , particle_cl_mem_struct * pCL ) ;

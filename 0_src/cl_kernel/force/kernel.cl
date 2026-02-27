@@ -11,7 +11,7 @@ __kernel void force_G(
    for ( size_t i = gid ; i < N ; i += gtotal ) {
 
         vstore2 ( g , i , G )  ;
-        printf ("g[%zi]: =%lf %lf\n", i , g.x , g.y);
+        //printf ("g[%zi]: =%lf %lf\n", i , g.x , g.y);
  
    }
    

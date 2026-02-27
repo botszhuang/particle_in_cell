@@ -49,34 +49,3 @@ void set_leap_frog_kernel_args ( leap_frog_kernel_struct * k ,
 
 }
 
-#define run(kernel) {   CL_CHECK ( clEnqueueNDRangeKernel( queue,\
-                             kernel, \
-                             k->work_dim, \
-                             k->global_work_offset,\
-                             k->global_work_size,\
-                             k->local_work_size,\
-                             waitForEvent.count,\
-                             waitForEvent.array,\
-                             event ) ) ;}
-void run_init_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , myfloat dt , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ){
-
-    myfloat dt_half = dt * 0.5 ;
-   
-    cl_int ret = 0 ;
-
-    ret = clSetKernelArg( k->X , 3 , sizeof( dt_half ) , (void*) &dt_half ); CL_CHECK( ret ) ;
-
-    run ( k->V_half );                             
-   
-    ret = clSetKernelArg( k->X , 3 , sizeof ( dt ) , (void*) &dt ); CL_CHECK( ret ) ;
-
-
-
-}
-void run_leap_frog_X_kernel      ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ){
-    run ( k->X);                             
-}
-void run_leap_frog_V_half_kernel ( leap_frog_kernel_struct * k , cl_command_queue queue , cl_event_struct waitForEvent, cl_event *event  ){
-    run ( k->V_half );                             
-}
-#undef run

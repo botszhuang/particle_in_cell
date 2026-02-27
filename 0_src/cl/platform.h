@@ -18,7 +18,7 @@ typedef struct{
 
 typedef struct{
     cl_event * array ;
-    const unsigned int count ; 
+    unsigned int count ; 
 } cl_event_struct ;
 
 void print_all_platform_info () ;
@@ -34,15 +34,6 @@ void init_program ( platform_struct * g ) ;
 
 void create_queue_in_order     ( cl_command_queue * q , cl_context context, cl_device_id device ) ;
 void create_queue_out_of_order ( cl_command_queue * q , cl_context context, cl_device_id device ) ;
-
-// event
-cl_event_struct initEventStruct( const unsigned int n) ;
-#define waitForEvents(ev) { CL_CHECK( clWaitForEvents( ev.count , ev.array ) ) ; }
-#define releaseEventArray(ev) {\
-    for ( unsigned int i = 0 ; i < ev.count ; i++ ) {\
-        CL_CHECK( clReleaseEvent( ev.array[i] ) ) ;\
-    }\
-}
 
 // kernel
 #define free_kernel(x) { if ( x ){ clReleaseKernel ( x ) ; } }
