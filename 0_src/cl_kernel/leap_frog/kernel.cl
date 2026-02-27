@@ -7,8 +7,9 @@
 // step2: a = A(x)  compute A
 // step3: v_half = v_half + ( dt * a ) 
 __kernel void leap_frog_X( 
-    __global double * X ,
-    __global double * V_half ,
+    __global myfloat * X ,
+    __global myfloat * V_half ,
+    __global myfloat * X_out  ,
     const unsigned int  N  ,
     const myfloat dt
    ){
@@ -16,10 +17,10 @@ __kernel void leap_frog_X(
    const int gid = get_global_id (0) ;
    const int gtotal = get_global_size (0) ;
 
-   //printf ("x: dt=%lf\n",dt);
+   printf ("x: dt=%lf\n",dt*3*gid);
 
-   double2 x ;
-   double2 v ;
+   myfloat2 x ;
+   myfloat2 v ;
 
    for ( size_t i = gid ; i < N ; i += gtotal ) {
         
@@ -27,16 +28,17 @@ __kernel void leap_frog_X(
      v = vload2(i, V_half);
 
      // x = x + ( dt * v )
-     x = fma((double2)(dt), v, x); //Fused Multiply-Add
+     x = fma((myfloat2)(dt), v, x); //Fused Multiply-Add
 
-     vstore2(x, i, X);
+     vstore2(x, i, X_out);
  
    }
    
 } 
 __kernel void leap_frog_V_half( 
-    __global double * V_half ,
-    __global double * A ,
+    __global myfloat * V_half ,
+    __global myfloat * A ,
+    __global myfloat * V_half_out ,
     const unsigned int  N  ,
     const myfloat dt
    ){
@@ -44,10 +46,10 @@ __kernel void leap_frog_V_half(
    const int gid = get_global_id (0) ;
    const int gtotal = get_global_size (0) ;
 
-   //printf ("v: dt=%lf\n",dt);
+   printf ("v: dt=%lf\n",dt*gid);
 
-   double2 a ;
-   double2 v ;
+   myfloat2 a ;
+   myfloat2 v ;
 
    for ( size_t i = gid ; i < N ; i += gtotal ) {
 
@@ -55,10 +57,11 @@ __kernel void leap_frog_V_half(
      v = vload2(i, V_half);
 
      // v = v + ( dt * a )
-     v = fma((double2)(dt), a, v);   
+     v = fma((myfloat2)(dt), a, v);   
  
-     vstore2(v, i, V_half);
+     vstore2(v, i, V_half_out);
 
    }
    
-} 
+}
+  

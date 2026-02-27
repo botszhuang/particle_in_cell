@@ -13,7 +13,8 @@
     #endif
 #endif
 
-#define myfloat double
+#define myfloat  double
+#define myfloat2 double2
 
 typedef struct ALIGN(16){
     myfloat x ;
