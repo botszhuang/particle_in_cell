@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #include <cl_erro_code.h>
 #include <platform.h>
@@ -43,9 +44,6 @@ typedef struct {
     particle_cl_mem_struct pCL ;
     leap_frog_kernel_struct leap_frog ;
     force_kernel_struct force  ;
-    cl_event LF_V ;
-    cl_event LF_X ;
-    cl_event GET_FORCE ;
     cl_event ioX ;
     cl_event ioV ;
     cl_event ioF ;

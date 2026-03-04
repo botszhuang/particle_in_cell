@@ -13,7 +13,7 @@ __kernel void force_G(
    myfloat  k = 1.0 ;
    myfloat2 x = (myfloat2) { 0 , 0 } ;
 
-   printf("from force\n"); 
+   //printf("from force\n"); 
    for ( size_t i = gid ; i < N ; i += gtotal ) {
 
      vstore2 ( x , i , X )  ;

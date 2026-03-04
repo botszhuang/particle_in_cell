@@ -1,14 +1,22 @@
 #include <main_struct.h>
+#include <pthread.h>
+
+typedef struct {
+    char str0[32];
+    dimension_2D_struct * p ;
+    unsigned int number ;
+    unsigned int i ; 
+    cl_event print ;
+}myCall_struct;
+
 
 #define ASYNCHRONOUS CL_FALSE 
-
+pthread_mutex_t printLocker = PTHREAD_MUTEX_INITIALIZER; 
 platform_struct gpu ;
 
-void myCall( dimension_2D_struct * p , const unsigned int pN , const char * str0 ) ;
+void myCall( dimension_2D_struct * p , const unsigned int pN , const char * str0 , const unsigned int i ) ;
+void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) ;
 
-void CL_CALLBACK on_readX_complete(cl_event event, cl_int status, void* user_data) ;
-void CL_CALLBACK on_readF_complete(cl_event event, cl_int status, void* user_data) ;
-void CL_CALLBACK on_readV_complete(cl_event event, cl_int status, void* user_data) ;
 
 int main( int argc , char * argv[]  ){
 
@@ -32,6 +40,11 @@ int main( int argc , char * argv[]  ){
     
     cl_command_queue io_queue  ;
     cl_command_queue dev_queue  ;
+
+    const unsigned int LOOP_N = 6 ;
+    cl_event LF_V      [ LOOP_N ] ;
+    cl_event LF_X      [ LOOP_N ] ;
+    cl_event GET_FORCE [ LOOP_N ] ;
     
     cl_uint work_dim = 1 ;
     size_t global_work_offset_0[1] = {0} ;
@@ -63,10 +76,12 @@ int main( int argc , char * argv[]  ){
 
     // events
     cl_int ret = 0 ;
-    cl_event dummy_event = clCreateUserEvent( gpu.context , &ret ) ; CL_CHECK( ret ) ; 
-                     ret = clSetUserEventStatus(dummy_event, CL_COMPLETE) ; CL_CHECK( ret ) ; 
+
     cl_event io_GX = clCreateUserEvent( gpu.context , &ret ) ; CL_CHECK( ret ) ;
     init_double_buffer_events ( sync , & gpu ) ;
+
+    cl_event dummy_event = clCreateUserEvent( gpu.context , &ret ) ; CL_CHECK( ret ) ; 
+                     ret = clSetUserEventStatus(dummy_event, CL_COMPLETE) ; CL_CHECK( ret ) ; 
 
     //queue
     create_queue_in_order     ( &io_queue  , gpu.context , gpu.devices[0] ) ;
@@ -80,15 +95,19 @@ int main( int argc , char * argv[]  ){
     CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.X,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesX , THAT.p.X, 1, &dummy_event, &( THAT.ioX ) ) ) ;
     CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.V,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesV , THAT.p.V, 1, &dummy_event, &( THAT.ioV ) ) ) ;
 
-    // --------------------------------------------------------------------------
     puts("### Running kernels ......") ;
     // leap frog step 0 : init V_half
+    CL_CHECK ( clReleaseEvent ( dummy_event ) ) ;
+    dummy_event = clCreateUserEvent( gpu.context , &ret ) ; CL_CHECK( ret ) ; 
+    CL_CHECK ( clSetUserEventStatus(dummy_event, CL_COMPLETE) ) ; 
     cl_event LF_V_waitList [] = { THAT.ioX , THAT.ioV } ;                                
     run_leap_frog_init_kernel( &( THAT.leap_frog ) , ( myfloat * ) & dt , 
                                dev_queue , work_dim , global_work_offset_0 ,  global_work_size , local_work_size ,
-                               2 , LF_V_waitList , &THAT.LF_V ) ;
-                     
-    for ( unsigned int i = 0 ; i < 10 ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
+                               2 , LF_V_waitList , &dummy_event ) ;
+
+    cl_event X_waitlist [2] ;
+                 
+    for ( unsigned int i = 0 ; i < 12 ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
         inv = ! bufIndex ;
 
         printf("LOOP:%i\n", i ) ;
@@ -96,47 +115,93 @@ int main( int argc , char * argv[]  ){
         // --------------------------------------------------------------------------
         // Queue: dev_queue
         // --------------------------------------------------------------------------
+
         // leap frog step 1 :
-        puts("### Running LFX ......") ;
-        cl_event X_waitlist [] = { THAT.LF_V , THIS.ioX } ;
-        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.X, work_dim, global_work_offset_0, global_work_size, local_work_size, 2 , X_waitlist , & THIS.LF_X ) ) ;      
-        CL_CHECK ( clReleaseEvent ( THAT.LF_V ) ) ;
+        puts("### Running LFX ......") ; fflush( stdout ) ;
+        const unsigned int k = i % LOOP_N ;
+
+        if ( k == 0 ) { X_waitlist [0] = dummy_event ; }
+        else {          X_waitlist [0] = LF_V [ ( k -1 ) ] ; ;
+        }
+
+        X_waitlist [1] = THIS.ioX ;
+ 
+        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.X, work_dim, global_work_offset_0, global_work_size, local_work_size,
+                                         2 , X_waitlist , & (LF_X [ k ] ) ) ) ;      
+
+                                 
+
         // leap frog step 2 :   a = A(x)  compute A
-        cl_event FORCE_waitlist [] = { THIS.LF_X , THIS.ioF } ; 
-        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size, 2 , FORCE_waitlist , & THIS.GET_FORCE ) ) ;
-        CL_CHECK ( clReleaseEvent ( THIS.LF_X ) ) ; 
+        cl_event FORCE_waitlist [] = { LF_X [ k ] , THIS.ioF } ; 
+        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size,
+                                         2 , FORCE_waitlist , & ( GET_FORCE [ k ] ) ) ) ;
+
         // leap frog step 3 :
-        cl_event V_waitlist[] = { THIS.GET_FORCE , THIS.ioV  } ;
-        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.V_half, work_dim, global_work_offset_0, global_work_size, local_work_size, 2 , V_waitlist  , & THIS.LF_V ) ) ;                              
-        CL_CHECK ( clReleaseEvent ( THIS.GET_FORCE ) ) ;
+        cl_event V_waitlist[] = { GET_FORCE [ k ] , THIS.ioV  } ;
+        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.V_half, work_dim, global_work_offset_0, global_work_size, local_work_size,
+                                         2 , V_waitlist  , & ( LF_V [ k ] ) ) ) ;                              
 
         // --------------------------------------------------------------------------
         // Queue: io_queue
         // --------------------------------------------------------------------------
-        if ( ( i+1 )% 5 == 0 ) { 
+        if ( ( i+1 )% LOOP_N == 0 ) { 
 
-            // 3. Define waitlists for the reads
-            cl_event wX[] = { THIS.LF_X,      THIS.ioX , THIS.printX }; 
-            cl_event wF[] = { THIS.GET_FORCE, THIS.ioF , THIS.printF }; 
-            cl_event wV[] = { THIS.LF_V,      THIS.ioV , THIS.printV }; 
+            fflush( stdout ) ;
 
-            cl_event new_ioX, new_ioF, new_ioV;
+            CL_CHECK( clWaitForEvents ( LOOP_N , LF_X      )) ;
+            CL_CHECK( clWaitForEvents(1, &THIS.printX)); 
+            CL_CHECK( clReleaseEvent(THIS.ioX)); 
+            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.X, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesX, THIS.p.X, 1, &(THIS.printX) , &(THIS.ioX) ) );
+            THIS.printX = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
 
-            // 4. Enqueue the Asynchronous Reads
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.X, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesX, THIS.p.X, 3, wX, &new_ioX ) );
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.F, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesF, THIS.p.F, 3, wF, &new_ioF ) );
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.V, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesV, THIS.p.V, 3, wV, &new_ioV ) );
+            CL_CHECK( clWaitForEvents ( LOOP_N , GET_FORCE )) ;
+            CL_CHECK( clWaitForEvents(1, &THIS.printF));
+            CL_CHECK( clReleaseEvent(THIS.ioF)); 
+            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.F, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesF, THIS.p.F, 1, &(THIS.printF) , &(THIS.ioF) ) );
+            THIS.printF = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
 
-            // 5. Set up Callbacks to trigger the prints
-            CL_CHECK( clSetEventCallback( new_ioX, CL_COMPLETE, on_readX_complete, (void*)&THIS ) );
-            CL_CHECK( clSetEventCallback( new_ioF, CL_COMPLETE, on_readF_complete, (void*)&THIS ) );
-            CL_CHECK( clSetEventCallback( new_ioV, CL_COMPLETE, on_readV_complete, (void*)&THIS ) );
-
-            // 6. Update the sync structure events
-            clReleaseEvent(THIS.ioX); THIS.ioX = new_ioX;
-            clReleaseEvent(THIS.ioF); THIS.ioF = new_ioF;
-            clReleaseEvent(THIS.ioV); THIS.ioV = new_ioV;
+            CL_CHECK( clWaitForEvents ( LOOP_N , LF_V      )) ;
+            CL_CHECK( clWaitForEvents(1, &THIS.printV));       
+            CL_CHECK( clReleaseEvent(THIS.ioV)); 
+            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.V, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesV, THIS.p.V, 1, &(THIS.printV) , &(THIS.ioV) ) );
+            CL_CHECK( clReleaseEvent(THIS.printV) );
+            THIS.printV = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
             
+            for (unsigned int j = 0; j < LOOP_N; j++) {
+                clReleaseEvent(LF_X     [j]);     
+                clReleaseEvent(GET_FORCE[j]);  
+                clReleaseEvent(LF_V     [j]);       
+            }
+    
+
+            myCall_struct * x =  calloc ( 1, sizeof ( myCall_struct ) ) ;
+            myCall_struct * v =  calloc ( 1, sizeof ( myCall_struct ) ) ;
+            myCall_struct * f =  calloc ( 1, sizeof ( myCall_struct ) ) ;
+
+            x->i = i ;
+            v->i = i ;
+            f->i = i ;
+
+            x->number = THIS.p.number ;
+            v->number = THIS.p.number ;
+            f->number = THIS.p.number ;
+
+            x->print  = THIS.printX ;
+            v->print  = THIS.printV ;
+            f->print  = THIS.printF ;
+
+            x->p = THIS.p.X ;
+            v->p = THIS.p.V ;
+            f->p = THIS.p.F ;
+            
+            strcpy ( x->str0 , "X" ) ;
+            strcpy ( v->str0 , "V" ) ;
+            strcpy ( f->str0 , "F" ) ;
+     
+            CL_CHECK( clSetEventCallback( THIS.ioX, CL_COMPLETE, on_io_complete, (void*)x ) );
+            CL_CHECK( clSetEventCallback( THIS.ioF, CL_COMPLETE, on_io_complete, (void*)f ) );
+            CL_CHECK( clSetEventCallback( THIS.ioV, CL_COMPLETE, on_io_complete, (void*)v ) );
+
         }
         // --------------------------------------------------------------------------
             
@@ -144,28 +209,33 @@ int main( int argc , char * argv[]  ){
 
     fflush( stdout ) ;
 
-
     for (int b = 0; b < 2; b++) {
-        clWaitForEvents(1, &sync[b].printX);
-        clWaitForEvents(1, &sync[b].printV);
-        clWaitForEvents(1, &sync[b].printF);
-        clWaitForEvents(1, &sync[b].ioX);
-        clWaitForEvents(1, &sync[b].ioV);
-        clWaitForEvents(1, &sync[b].ioF);
+        CL_CHECK ( clWaitForEvents(1, &sync[b].ioX) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].ioV) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].ioF) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].printX) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].printV) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].printF) );
     }
 
 
     #undef THIS
     #undef THAT
-    
 
-    clFlush  ( dev_queue ) ;
-    clFinish ( dev_queue ) ;
-    clFlush  ( io_queue ) ;
-    clFinish ( io_queue ) ;
 
+    // Now, force the main thread to acquire the lock. 
+    // This will block until the callback finishes 'myCall' and unlocks.
+    pthread_mutex_lock(&printLocker); 
+    pthread_mutex_unlock(&printLocker);
+    pthread_mutex_destroy( &printLocker ) ;
+
+    CL_CHECK ( clFlush  ( dev_queue ) );
+    CL_CHECK ( clFinish ( dev_queue ) );
+    CL_CHECK ( clFlush  ( io_queue ) );
+    CL_CHECK ( clFinish ( io_queue ) );
 
     puts("### end of the kernels ......") ;
+
     // --------------------------------------------------------------------------
     for ( unsigned int i = 0 ; i < 2 ; i++ ){    
         free_leap_frog_kernel    ( & ( sync[i].leap_frog ) ) ;
@@ -179,64 +249,38 @@ int main( int argc , char * argv[]  ){
     return EXIT_SUCCESS;
 }
 
-void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 ) {
+void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 , const unsigned int i ) {
    
-    puts(str0);
-    print_2D_list ( p , 2 ) ;
+    printf( "%s: %i\n", str0 , i ) ;    fflush( stdout ) ;
+    pthread_mutex_lock( &printLocker ); 
+    
+    char fname [128] ;
+    sprintf ( fname , "output/%s_%i.tex\n", str0 , i ) ; 
+   
+    FILE * fptr = fopen ( fname , "w" ) ;
+   
+    fprintf ( fptr , "#x , y\n" ) ;
+    
+    for ( size_t i = 0 ; i < pN ; i++ ) { fprintf ( fptr , "%e %e\n", p[i].x , p[i].y ) ;  }
 
-    fflush( stdout ) ;
+    fflush( fptr ) ;
+    fclose ( fptr ) ;
+
+    pthread_mutex_unlock( &printLocker ); 
      
 }
-
-void CL_CALLBACK on_readX_complete(cl_event event, cl_int status, void* user_data) {
+void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) {
 
     if (status != CL_COMPLETE) {  
         fprintf(stderr, "Error: OpenCL event failed with status %d\n", status);
         return ;
     }
 
-    sync_cl_Struct* THIS = (sync_cl_Struct*)user_data;
+    myCall_struct* x = (myCall_struct*)user_data;
 
-    cl_int ret = 0 ;
-    CL_CHECK( clReleaseEvent( THIS->printX ));
-    THIS->printX = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-  
-    myCall( THIS->p.X , THIS->p.number , __FUNCTION__ ) ;
-  
-    CL_CHECK ( clSetUserEventStatus( THIS->printX , CL_COMPLETE ) ) ;
+    myCall( x->p , x->number , x->str0 , x->i ) ;
+ 
+    CL_CHECK ( clSetUserEventStatus( x->print , CL_COMPLETE ) ) ;
+    free ( x ) ;
 
-}
-void CL_CALLBACK on_readF_complete(cl_event event, cl_int status, void* user_data) {
-    
-    if (status != CL_COMPLETE) {  
-        fprintf(stderr, "Error: OpenCL event failed with status %d\n", status);
-        return ;
-    }
-
-    sync_cl_Struct* THIS = (sync_cl_Struct*)user_data;
-
-    cl_int ret = 0 ;
-    CL_CHECK( clReleaseEvent( THIS->printF ));
-    THIS->printF = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-    
-    myCall( THIS->p.F , THIS->p.number , __FUNCTION__ ) ;
-
-    CL_CHECK ( clSetUserEventStatus( THIS->printF , CL_COMPLETE ) ) ;
-}
-void CL_CALLBACK on_readV_complete(cl_event event, cl_int status, void* user_data) {
-    
-    if (status != CL_COMPLETE) {  
-        fprintf(stderr, "Error: OpenCL event failed with status %d\n", status);
-        return ;
-    }
-
-    sync_cl_Struct* THIS = (sync_cl_Struct*)user_data;
-
-    cl_int ret = 0 ;
-    CL_CHECK( clReleaseEvent( THIS->printV ));
-    THIS->printV = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-
-    myCall( THIS->p.V , THIS->p.number , __FUNCTION__ ) ;
-
-    CL_CHECK ( clSetUserEventStatus( THIS->printV , CL_COMPLETE ) ) ;
 }

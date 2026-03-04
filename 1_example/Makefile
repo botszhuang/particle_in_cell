@@ -27,8 +27,8 @@ ALL_SRC_DIRS := $(shell find $(SRC_PATH) -type d)
 CC_INC := $(addprefix -I,$(ALL_SRC_DIRS)) -I$(OBJ_DIR)
 
 # Ensure CCFLAGS uses this CC_INC
-CCFLAGS  := -I$(CUDA_INC) $(CC_INC) -g -Wall -DDEBUG
-LDFLAGS  := -L$(CUDA_LIB) -lOpenCL -lm
+CCFLAGS  := -I$(CUDA_INC) $(CC_INC) -pthread -g -Wall -DDEBUG
+LDFLAGS  := -L$(CUDA_LIB) -pthread -lOpenCL -lm
 
 ######################################
 

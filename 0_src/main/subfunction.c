@@ -41,6 +41,7 @@ void get_particle_profile ( particle_struct * p , input_tex_tag_struct * tag ) {
         exit (1) ;
     }
 }
+
 void create_grid_dev_memory ( grid_cl_mem_struct * gCL , const grid_struct g , platform_struct gpu ) {
 
     cl_int ret = 0 ;  
@@ -56,13 +57,7 @@ void free_grid_dev_memory ( grid_cl_mem_struct * gCL ) {
     CL_CHECK( clReleaseMemObject( gCL->X ) ) ;
    
 }
-void free_particle_dev_memory ( particle_cl_mem_struct * pCL ) {
-    
-    // particle
-    CL_CHECK( clReleaseMemObject( pCL->X ) ) ;
-    CL_CHECK( clReleaseMemObject( pCL->V ) ) ;
-    CL_CHECK( clReleaseMemObject( pCL->F ) ) ;
-}
+
 void create_particle_dev_memory( sync_cl_Struct * sync , platform_struct * gpu ){
     cl_int ret = 0 ;
    
@@ -76,16 +71,20 @@ void create_particle_dev_memory( sync_cl_Struct * sync , platform_struct * gpu )
     sync->pCL.F = clCreateBuffer( gpu->context , CL_MEM_READ_WRITE , sync->pCL.bytesF , NULL , &ret ) ; CL_CHECK( ret ) ;
     
 }
+void free_particle_dev_memory ( particle_cl_mem_struct * pCL ) {
+    
+    // particle
+    CL_CHECK( clReleaseMemObject( pCL->X ) ) ;
+    CL_CHECK( clReleaseMemObject( pCL->V ) ) ;
+    CL_CHECK( clReleaseMemObject( pCL->F ) ) ;
+}
+
 void init_double_buffer_events ( sync_cl_Struct * sync , platform_struct * gpu ){
     
     cl_int ret = 0 ;
 
     for ( unsigned i = 0 ; i < 2  ; i++ ) {         
 
-        sync[i].LF_V = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].LF_X = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].GET_FORCE = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;     
-        
         sync[i].ioX    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
         sync[i].ioV    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
         sync[i].ioF    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
