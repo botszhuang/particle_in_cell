@@ -5,7 +5,7 @@ typedef struct {
     char str0[32];
     dimension_2D_struct * p ;
     unsigned int number ;
-    unsigned int i ; 
+    float i ; 
     cl_event print ;
 }myCall_struct;
 
@@ -14,7 +14,7 @@ typedef struct {
 pthread_mutex_t printLocker = PTHREAD_MUTEX_INITIALIZER; 
 platform_struct gpu ;
 
-void myCall( dimension_2D_struct * p , const unsigned int pN , const char * str0 , const unsigned int i ) ;
+void myCall( dimension_2D_struct * p , const unsigned int pN , const char * str0 , const float i ) ;
 void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) ;
 
 
@@ -33,6 +33,7 @@ int main( int argc , char * argv[]  ){
     
     myfloat current_T  = 0 ;
     const myfloat dt = 0.1 ;
+    printf ("dt = %lf\n" , dt ) ;
 
     grid_struct grid ;
     grid_cl_mem_struct gCL ;
@@ -41,7 +42,7 @@ int main( int argc , char * argv[]  ){
     cl_command_queue io_queue  ;
     cl_command_queue dev_queue  ;
 
-    const unsigned int LOOP_N = 6 ;
+    const unsigned int LOOP_N = 1 ;
     cl_event LF_V      [ LOOP_N ] ;
     cl_event LF_X      [ LOOP_N ] ;
     cl_event GET_FORCE [ LOOP_N ] ;
@@ -88,26 +89,31 @@ int main( int argc , char * argv[]  ){
     create_queue_out_of_order ( &dev_queue , gpu.context , gpu.devices[0] ) ;
  
     // --------------------------------------------------------------------------
-
+    puts("### Running kernels ......") ;
+    // leap frog step 0 : init V_half
     puts("### Writing grid and particle data to the device ......") ;
     const unsigned int OFFSET_0 = 0 ;
     CL_CHECK ( clEnqueueWriteBuffer( io_queue, gCL.X,       ASYNCHRONOUS, OFFSET_0,  gCL.X_bytes, grid.X, 1, &dummy_event, &io_GX ) ) ;   
     CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.X,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesX , THAT.p.X, 1, &dummy_event, &( THAT.ioX ) ) ) ;
-    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.V,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesV , THAT.p.V, 1, &dummy_event, &( THAT.ioV ) ) ) ;
+    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THIS.pCL.V,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesV , THAT.p.V, 1, &dummy_event, &( THAT.ioV ) ) ) ;
 
-    puts("### Running kernels ......") ;
-    // leap frog step 0 : init V_half
-    CL_CHECK ( clReleaseEvent ( dummy_event ) ) ;
-    dummy_event = clCreateUserEvent( gpu.context , &ret ) ; CL_CHECK( ret ) ; 
-    CL_CHECK ( clSetUserEventStatus(dummy_event, CL_COMPLETE) ) ; 
-    cl_event LF_V_waitList [] = { THAT.ioX , THAT.ioV } ;                                
+
+    
+    cl_event init_F_waitList [] = { THAT.ioX , THAT.ioV } ;  
+    cl_event init_F ;     
+    //Compute acceleration at the initial position
+    CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THAT.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size,
+                                         2 , init_F_waitList , & ( init_F) ) ) ; 
+    fflush(stdout);                                     
+    //Compute velocity at the initial position                      
     run_leap_frog_init_kernel( &( THAT.leap_frog ) , ( myfloat * ) & dt , 
                                dev_queue , work_dim , global_work_offset_0 ,  global_work_size , local_work_size ,
-                               2 , LF_V_waitList , &dummy_event ) ;
+                               1 , &(init_F) , &dummy_event ) ;
+    fflush(stdout);                                     
 
     cl_event X_waitlist [2] ;
                  
-    for ( unsigned int i = 0 ; i < 12 ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
+    for ( unsigned int i = 0 ; i < 500 ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
         inv = ! bufIndex ;
 
         printf("LOOP:%i\n", i ) ;
@@ -128,6 +134,7 @@ int main( int argc , char * argv[]  ){
  
         CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.X, work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , X_waitlist , & (LF_X [ k ] ) ) ) ;      
+    fflush(stdout);                                     
 
                                  
 
@@ -135,11 +142,13 @@ int main( int argc , char * argv[]  ){
         cl_event FORCE_waitlist [] = { LF_X [ k ] , THIS.ioF } ; 
         CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , FORCE_waitlist , & ( GET_FORCE [ k ] ) ) ) ;
+    fflush(stdout);                                     
 
         // leap frog step 3 :
         cl_event V_waitlist[] = { GET_FORCE [ k ] , THIS.ioV  } ;
         CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.V_half, work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , V_waitlist  , & ( LF_V [ k ] ) ) ) ;                              
+    fflush(stdout);                                     
 
         // --------------------------------------------------------------------------
         // Queue: io_queue
@@ -179,7 +188,7 @@ int main( int argc , char * argv[]  ){
             myCall_struct * f =  calloc ( 1, sizeof ( myCall_struct ) ) ;
 
             x->i = i ;
-            v->i = i ;
+            v->i = i+0.5 ;
             f->i = i ;
 
             x->number = THIS.p.number ;
@@ -249,13 +258,13 @@ int main( int argc , char * argv[]  ){
     return EXIT_SUCCESS;
 }
 
-void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 , const unsigned int i ) {
+void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 , const float i ) {
    
-    printf( "%s: %i\n", str0 , i ) ;    fflush( stdout ) ;
+    //printf( "%s: %i\n", str0 , i ) ;    fflush( stdout ) ;
     pthread_mutex_lock( &printLocker ); 
     
     char fname [128] ;
-    sprintf ( fname , "output/%s_%i.tex\n", str0 , i ) ; 
+    sprintf ( fname , "output/%s_%03.1lf.tex", str0 , i+1 ) ; 
    
     FILE * fptr = fopen ( fname , "w" ) ;
    

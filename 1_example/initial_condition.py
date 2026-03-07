@@ -9,7 +9,7 @@ particle_VFile = path+"particle_velocity.tex"
 xboundarys = [ 0, 3 ]
 yboundarys = [ 0, 3 ]
 vMax = 0.5
-particle_number = 10
+particle_number = 1
 
 #initialize the input directory
 if not os.path.exists( path ):

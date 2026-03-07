@@ -114,12 +114,12 @@ void init_double_buffer_kernels_and_args( sync_cl_Struct *sync ,  platform_struc
         create_force_G_kernel   ( & ( sync[i].force ) , gpu ) ; 
 
         set_leap_frog_kernel_args ( &( sync[i].leap_frog ) , 
-                                &( sync[inv].pCL.X ), &( sync[inv].pCL.V ), &( sync[inv].pCL.F ) , 
+                                &( sync[inv].pCL.X ), &( sync[inv].pCL.V ), &( sync[i].pCL.F ) , 
                                 &( sync[i].p.number ) , (double *) dt , 
                                 &( sync[i].pCL.X ) , &( sync[i].pCL.V ) ) ;
 
         set_force_G_kernel_args ( & ( sync[i].force ) , 
-                                  & ( sync[inv].pCL.F ), &( sync[inv].pCL.X ), 
+                                  & ( sync[inv].pCL.F ), &( sync[i].pCL.X ), 
                                   & ( sync[i].p.number ) , 
                                   & ( sync[i].pCL.F ) ) ;
 
