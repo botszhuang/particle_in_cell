@@ -1,22 +1,9 @@
 #include <main_struct.h>
-#include <pthread.h>
 
-typedef struct {
-    char str0[32];
-    dimension_2D_struct * p ;
-    unsigned int number ;
-    float i ; 
-    cl_event print ;
-}myCall_struct;
-
-
-#define ASYNCHRONOUS CL_FALSE 
-pthread_mutex_t printLocker = PTHREAD_MUTEX_INITIALIZER; 
 platform_struct gpu ;
 
-void myCall( dimension_2D_struct * p , const unsigned int pN , const char * str0 , const float i ) ;
-void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) ;
-
+const unsigned int LOOP_N = 100 ;
+const unsigned int LOOP_END = 500 ;
 
 int main( int argc , char * argv[]  ){
 
@@ -42,7 +29,6 @@ int main( int argc , char * argv[]  ){
     cl_command_queue io_queue  ;
     cl_command_queue dev_queue  ;
 
-    const unsigned int LOOP_N = 1 ;
     cl_event LF_V      [ LOOP_N ] ;
     cl_event LF_X      [ LOOP_N ] ;
     cl_event GET_FORCE [ LOOP_N ] ;
@@ -67,7 +53,6 @@ int main( int argc , char * argv[]  ){
     THIS.p.X = malloc ( THAT.p.number * sizeof ( THAT.p.X[0] ) ) ;
     THIS.p.F = malloc ( THAT.p.number * sizeof ( THAT.p.F[0] ) ) ;
     THIS.p.V = malloc ( THAT.p.number * sizeof ( THAT.p.V[0] ) ) ;
-    printf ( "N = %i\n" , THIS.p.number ) ;
 
     create_grid_dev_memory ( & gCL ,  grid , gpu ) ;
     create_particle_dev_memory( &(THIS) , &gpu ) ;
@@ -94,137 +79,84 @@ int main( int argc , char * argv[]  ){
     puts("### Writing grid and particle data to the device ......") ;
     const unsigned int OFFSET_0 = 0 ;
     CL_CHECK ( clEnqueueWriteBuffer( io_queue, gCL.X,       ASYNCHRONOUS, OFFSET_0,  gCL.X_bytes, grid.X, 1, &dummy_event, &io_GX ) ) ;   
-    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.X,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesX , THAT.p.X, 1, &dummy_event, &( THAT.ioX ) ) ) ;
-    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THIS.pCL.V,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesV , THAT.p.V, 1, &dummy_event, &( THAT.ioV ) ) ) ;
+    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THAT.pCL.X,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesX , THAT.p.X, 1, &dummy_event, &( THAT.X.io ) ) ) ;
+    CL_CHECK ( clEnqueueWriteBuffer( io_queue, THIS.pCL.V,  ASYNCHRONOUS, OFFSET_0,  THAT.pCL.bytesV , THAT.p.V, 1, &dummy_event, &( THAT.V.io ) ) ) ;
 
 
     
-    cl_event init_F_waitList [] = { THAT.ioX , THAT.ioV } ;  
+    cl_event init_F_waitList [] = { THAT.X.io , THAT.V.io } ;  
     cl_event init_F ;     
     //Compute acceleration at the initial position
     CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THAT.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , init_F_waitList , & ( init_F) ) ) ; 
-    fflush(stdout);                                     
     //Compute velocity at the initial position                      
     run_leap_frog_init_kernel( &( THAT.leap_frog ) , ( myfloat * ) & dt , 
                                dev_queue , work_dim , global_work_offset_0 ,  global_work_size , local_work_size ,
                                1 , &(init_F) , &dummy_event ) ;
-    fflush(stdout);                                     
 
-    cl_event X_waitlist [2] ;
-                 
-    for ( unsigned int i = 0 ; i < 500 ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
+    cl_event X_waitlist     [2] ;
+    cl_event FORCE_waitlist [2] ; 
+    cl_event V_waitlist     [2] ; 
+    unsigned int k = 0 ;
+
+    for ( unsigned int i = 0 ; i < LOOP_END ; i++ , current_T += dt , bufIndex = !bufIndex ) { 
         inv = ! bufIndex ;
 
-        printf("LOOP:%i\n", i ) ;
+        if ( !(i%LOOP_N) ) { printf("LOOP:%i\n", i ) ; }
         THIS.i = i ;
         // --------------------------------------------------------------------------
         // Queue: dev_queue
         // --------------------------------------------------------------------------
 
         // leap frog step 1 :
-        puts("### Running LFX ......") ; fflush( stdout ) ;
-        const unsigned int k = i % LOOP_N ;
+        
+        k = i % LOOP_N ;
 
         if ( k == 0 ) { X_waitlist [0] = dummy_event ; }
         else {          X_waitlist [0] = LF_V [ ( k -1 ) ] ; ;
         }
-
-        X_waitlist [1] = THIS.ioX ;
+        X_waitlist [1] = THIS.X.io ;
  
         CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.X, work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , X_waitlist , & (LF_X [ k ] ) ) ) ;      
-    fflush(stdout);                                     
-
-                                 
-
+        if ( ( i+1 )% LOOP_N == 0 ) { 
+            run_io_queue ( &io_queue  , LF_X , & gpu , &( THIS.X ) , THIS.pCL.X , THIS.pCL.bytesX , THIS.p.X , THIS.p.number ,  LOOP_N , i , 0 , "X" ); 
+        }                                 
         // leap frog step 2 :   a = A(x)  compute A
-        cl_event FORCE_waitlist [] = { LF_X [ k ] , THIS.ioF } ; 
+        FORCE_waitlist[0] = LF_X [ k ] ;
+        FORCE_waitlist[1] = THIS.F.io ; 
         CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.force.G , work_dim, global_work_offset_0, global_work_size, local_work_size,
                                          2 , FORCE_waitlist , & ( GET_FORCE [ k ] ) ) ) ;
-    fflush(stdout);                                     
-
-        // leap frog step 3 :
-        cl_event V_waitlist[] = { GET_FORCE [ k ] , THIS.ioV  } ;
-        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.V_half, work_dim, global_work_offset_0, global_work_size, local_work_size,
-                                         2 , V_waitlist  , & ( LF_V [ k ] ) ) ) ;                              
-    fflush(stdout);                                     
-
-        // --------------------------------------------------------------------------
-        // Queue: io_queue
-        // --------------------------------------------------------------------------
         if ( ( i+1 )% LOOP_N == 0 ) { 
+            run_io_queue ( &io_queue  , GET_FORCE , & gpu , &( THIS.F ) , THIS.pCL.F , THIS.pCL.bytesF , THIS.p.F , THIS.p.number ,  LOOP_N , i , 0 , "F" ); 
+        }     
+        // leap frog step 3 :
+        V_waitlist[0] = GET_FORCE [ k ] ;
+        V_waitlist[1] = THIS.V.io ;
+        CL_CHECK ( clEnqueueNDRangeKernel( dev_queue, THIS.leap_frog.V_half, work_dim, global_work_offset_0, global_work_size, local_work_size,
+                                         2 , V_waitlist  , & ( LF_V [ k ] ) ) ) ;   
+ 
+        if ( !(( i+1 )% LOOP_N) ) {          
+            run_io_queue ( &io_queue  , LF_V , & gpu , &( THIS.V ) , THIS.pCL.V , THIS.pCL.bytesV , THIS.p.V , THIS.p.number , LOOP_N , i , 0.5 , "V" );
 
-            fflush( stdout ) ;
-
-            CL_CHECK( clWaitForEvents ( LOOP_N , LF_X      )) ;
-            CL_CHECK( clWaitForEvents(1, &THIS.printX)); 
-            CL_CHECK( clReleaseEvent(THIS.ioX)); 
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.X, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesX, THIS.p.X, 1, &(THIS.printX) , &(THIS.ioX) ) );
-            THIS.printX = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-
-            CL_CHECK( clWaitForEvents ( LOOP_N , GET_FORCE )) ;
-            CL_CHECK( clWaitForEvents(1, &THIS.printF));
-            CL_CHECK( clReleaseEvent(THIS.ioF)); 
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.F, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesF, THIS.p.F, 1, &(THIS.printF) , &(THIS.ioF) ) );
-            THIS.printF = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-
-            CL_CHECK( clWaitForEvents ( LOOP_N , LF_V      )) ;
-            CL_CHECK( clWaitForEvents(1, &THIS.printV));       
-            CL_CHECK( clReleaseEvent(THIS.ioV)); 
-            CL_CHECK( clEnqueueReadBuffer( io_queue, THIS.pCL.V, ASYNCHRONOUS, OFFSET_0, THIS.pCL.bytesV, THIS.p.V, 1, &(THIS.printV) , &(THIS.ioV) ) );
-            CL_CHECK( clReleaseEvent(THIS.printV) );
-            THIS.printV = clCreateUserEvent(gpu.context, &ret); CL_CHECK(ret);
-            
-            for (unsigned int j = 0; j < LOOP_N; j++) {
-                clReleaseEvent(LF_X     [j]);     
-                clReleaseEvent(GET_FORCE[j]);  
-                clReleaseEvent(LF_V     [j]);       
-            }
-    
-
-            myCall_struct * x =  calloc ( 1, sizeof ( myCall_struct ) ) ;
-            myCall_struct * v =  calloc ( 1, sizeof ( myCall_struct ) ) ;
-            myCall_struct * f =  calloc ( 1, sizeof ( myCall_struct ) ) ;
-
-            x->i = i ;
-            v->i = i+0.5 ;
-            f->i = i ;
-
-            x->number = THIS.p.number ;
-            v->number = THIS.p.number ;
-            f->number = THIS.p.number ;
-
-            x->print  = THIS.printX ;
-            v->print  = THIS.printV ;
-            f->print  = THIS.printF ;
-
-            x->p = THIS.p.X ;
-            v->p = THIS.p.V ;
-            f->p = THIS.p.F ;
-            
-            strcpy ( x->str0 , "X" ) ;
-            strcpy ( v->str0 , "V" ) ;
-            strcpy ( f->str0 , "F" ) ;
-     
-            CL_CHECK( clSetEventCallback( THIS.ioX, CL_COMPLETE, on_io_complete, (void*)x ) );
-            CL_CHECK( clSetEventCallback( THIS.ioF, CL_COMPLETE, on_io_complete, (void*)f ) );
-            CL_CHECK( clSetEventCallback( THIS.ioV, CL_COMPLETE, on_io_complete, (void*)v ) );
-
+            freeEventArray( LOOP_N , LF_X      ) ;
+            freeEventArray( LOOP_N , GET_FORCE ) ;
+            freeEventArray( LOOP_N , LF_V      ) ;
+        
         }
         // --------------------------------------------------------------------------
-            
+           
     }
 
     fflush( stdout ) ;
 
     for (int b = 0; b < 2; b++) {
-        CL_CHECK ( clWaitForEvents(1, &sync[b].ioX) );
-        CL_CHECK ( clWaitForEvents(1, &sync[b].ioV) );
-        CL_CHECK ( clWaitForEvents(1, &sync[b].ioF) );
-        CL_CHECK ( clWaitForEvents(1, &sync[b].printX) );
-        CL_CHECK ( clWaitForEvents(1, &sync[b].printV) );
-        CL_CHECK ( clWaitForEvents(1, &sync[b].printF) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].X.io) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].V.io) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].F.io) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].X.print) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].V.print) );
+        CL_CHECK ( clWaitForEvents(1, &sync[b].F.print) );
     }
 
 
@@ -232,8 +164,6 @@ int main( int argc , char * argv[]  ){
     #undef THAT
 
 
-    // Now, force the main thread to acquire the lock. 
-    // This will block until the callback finishes 'myCall' and unlocks.
     pthread_mutex_lock(&printLocker); 
     pthread_mutex_unlock(&printLocker);
     pthread_mutex_destroy( &printLocker ) ;
@@ -250,7 +180,15 @@ int main( int argc , char * argv[]  ){
         free_leap_frog_kernel    ( & ( sync[i].leap_frog ) ) ;
         free_force_G_kernel      ( & ( sync[i].force     ) ) ;
         free_particle_dev_memory ( & ( sync[i].pCL       ) ) ;
+        clReleaseEvent ( sync[i].X.io ) ;
+        clReleaseEvent ( sync[i].F.io ) ;
+        clReleaseEvent ( sync[i].V.io ) ;
+        clReleaseEvent ( sync[i].X.print ) ;
+        clReleaseEvent ( sync[i].F.print ) ;
+        clReleaseEvent ( sync[i].V.print ) ;
+
     }
+
     free_grid_dev_memory ( & gCL ) ;
     free_platform_struct ( &gpu ) ;
 
@@ -258,38 +196,3 @@ int main( int argc , char * argv[]  ){
     return EXIT_SUCCESS;
 }
 
-void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 , const float i ) {
-   
-    //printf( "%s: %i\n", str0 , i ) ;    fflush( stdout ) ;
-    pthread_mutex_lock( &printLocker ); 
-    
-    char fname [128] ;
-    sprintf ( fname , "output/%s_%03.1lf.tex", str0 , i+1 ) ; 
-   
-    FILE * fptr = fopen ( fname , "w" ) ;
-   
-    fprintf ( fptr , "#x , y\n" ) ;
-    
-    for ( size_t i = 0 ; i < pN ; i++ ) { fprintf ( fptr , "%e %e\n", p[i].x , p[i].y ) ;  }
-
-    fflush( fptr ) ;
-    fclose ( fptr ) ;
-
-    pthread_mutex_unlock( &printLocker ); 
-     
-}
-void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) {
-
-    if (status != CL_COMPLETE) {  
-        fprintf(stderr, "Error: OpenCL event failed with status %d\n", status);
-        return ;
-    }
-
-    myCall_struct* x = (myCall_struct*)user_data;
-
-    myCall( x->p , x->number , x->str0 , x->i ) ;
- 
-    CL_CHECK ( clSetUserEventStatus( x->print , CL_COMPLETE ) ) ;
-    free ( x ) ;
-
-}

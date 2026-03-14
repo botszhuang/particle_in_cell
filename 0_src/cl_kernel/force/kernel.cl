@@ -17,7 +17,7 @@ __kernel void force_G(
      x = vload2(i, X );
      g.x = 0.5 * ( 0 - x.x ) ;
      g.y = 0 ; 
-     printf ("a:%.3lf %.3lf\n", g.x , g.y);
+     //printf ("a:%.3lf %.3lf\n", g.x , g.y);
      vstore2 ( g , i , GOUT )  ;
  
    }

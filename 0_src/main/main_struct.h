@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <cl_erro_code.h>
 #include <platform.h>
 #include <get_input_info.h>
 #include <cl_kernel_list.h>
+
 
 typedef struct {
     cl_mem X ;
@@ -37,22 +39,33 @@ typedef struct{
     unsigned int number ;
 } particle_struct ;
 typedef struct{
-    cl_event ioGPU ;
+    cl_event io ;
+    cl_event print ;
 }io_event_struct ;
 typedef struct {
     particle_struct p ;
     particle_cl_mem_struct pCL ;
     leap_frog_kernel_struct leap_frog ;
     force_kernel_struct force  ;
-    cl_event ioX ;
-    cl_event ioV ;
-    cl_event ioF ;
-    cl_event printX ;
-    cl_event printV ;
-    cl_event printF ;
+    io_event_struct X ;
+    io_event_struct V ;
+    io_event_struct F ;
     unsigned int i ;
 } sync_cl_Struct ;
 
+
+
+typedef struct {
+    char str0[32];
+    dimension_2D_struct * p ;
+    unsigned int number ;
+    cl_event * waitList ;
+    float i ; 
+    cl_event print ;
+}myCall_struct;
+
+#define ASYNCHRONOUS CL_FALSE 
+extern pthread_mutex_t printLocker ;
 
 
 void get_input_tex ( input_tex_tag_struct * input_tag ,  char * inputFile );
@@ -68,3 +81,12 @@ void init_double_buffer_kernels_and_args( sync_cl_Struct *sync ,  platform_struc
 void print_2D ( const unsigned int i ,
                 const unsigned int N ,
                 particle_dimension * P ) ;
+
+void freeEventArray( const unsigned int N , cl_event * eventArray ) ;
+
+
+//------------ callback function --------------//
+//void myCall( dimension_2D_struct * p , const unsigned int pN, const char * str0 , const float i ) ;
+//void CL_CALLBACK on_io_complete(cl_event event, cl_int status, void* user_data) ;
+void run_io_queue ( cl_command_queue * io_queue  , cl_event * funcEvent , platform_struct * gpu , io_event_struct * X , cl_mem pCLX , const size_t pCL_bytesX , particle_dimension * pX , const size_t p_number , const unsigned int LOOP_N , const unsigned int i , const float iplus , char * str0 ) ;
+

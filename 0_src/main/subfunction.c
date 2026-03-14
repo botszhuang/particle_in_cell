@@ -85,20 +85,20 @@ void init_double_buffer_events ( sync_cl_Struct * sync , platform_struct * gpu )
 
     for ( unsigned i = 0 ; i < 2  ; i++ ) {         
 
-        sync[i].ioX    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].ioV    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].ioF    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].printX = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].printV = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
-        sync[i].printF = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].X.io    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].V.io    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].F.io    = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].X.print = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].V.print = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
+        sync[i].F.print = clCreateUserEvent( gpu->context , &ret ) ; CL_CHECK( ret ) ;
 
-        CL_CHECK ( clSetUserEventStatus(sync[i].ioX, CL_COMPLETE) );
-        CL_CHECK ( clSetUserEventStatus(sync[i].ioV, CL_COMPLETE) );
-        CL_CHECK ( clSetUserEventStatus(sync[i].ioF, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].X.io, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].V.io, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].F.io, CL_COMPLETE) );
 
-        CL_CHECK ( clSetUserEventStatus(sync[i].printX, CL_COMPLETE) );
-        CL_CHECK ( clSetUserEventStatus(sync[i].printV, CL_COMPLETE) );
-        CL_CHECK ( clSetUserEventStatus(sync[i].printF, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].X.print, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].V.print, CL_COMPLETE) );
+        CL_CHECK ( clSetUserEventStatus(sync[i].F.print, CL_COMPLETE) );
     }
 
 }
@@ -125,4 +125,10 @@ void init_double_buffer_kernels_and_args( sync_cl_Struct *sync ,  platform_struc
 
  
     } 
+}
+
+void freeEventArray( const unsigned int N , cl_event * eventArray ){
+    for (unsigned int j = 0; j < N; j++) {
+        clReleaseEvent( eventArray [ j ] );         
+    }
 }

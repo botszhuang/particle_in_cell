@@ -30,7 +30,7 @@ __kernel void leap_frog_X(
      // x = x + ( dt * v )
      x = fma((myfloat2)(dt), v, x); //Fused Multiply-Add
      //printf ( "v: %.3lf %.3lf ; x: %.3lf %.3lf\n", v.x , v.y , x.x , x.y ) ;  
-     printf ( "x:%.3lf %.3lf\n", x.x , x.y ) ;  
+     //printf ( "x:%.3lf %.3lf\n", x.x , x.y ) ;  
 
      vstore2(x, i, X_out);
  
@@ -63,10 +63,10 @@ __kernel void leap_frog_V_half(
      a_old = vload2(i, A);
 
      // v = v + ( dt * a )
-     printf ( "old a: %.3lf %.3lf; old v: %.3lf %.3lf; v_out: %.3lf %.3lf\n", a_old.x , a_old.y , v_old.x , v_old.y , v.x , v.y ) ;  
+     //printf ( "old a: %.3lf %.3lf; old v: %.3lf %.3lf; v_out: %.3lf %.3lf\n", a_old.x , a_old.y , v_old.x , v_old.y , v.x , v.y ) ;  
      
      v = fma((myfloat2)(dt), a, v); 
-     printf ( "v: %.3lf %.3lf\n",v.x , v.y ) ;  
+     //printf ( "v: %.3lf %.3lf\n",v.x , v.y ) ;  
  
      vstore2(v, i, V_half_out);
 
